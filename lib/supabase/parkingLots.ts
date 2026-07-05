@@ -20,6 +20,7 @@ interface ParkingLotRow {
   longitude: number;
   operation_hours: string;
   fee: string;
+  type: string;
 }
 
 interface ParkingStatusRow {
@@ -32,7 +33,7 @@ interface ParkingStatusRow {
 export async function fetchParkingLotsFromSupabase(): Promise<ParkingLot[]> {
   const { data: lotRows, error: lotsError } = await supabase
     .from('parking_lots')
-    .select('id, name, district, address, latitude, longitude, operation_hours, fee');
+    .select('id, name, district, address, latitude, longitude, operation_hours, fee, type');
   if (lotsError) throw lotsError;
 
   const { data: statusRows, error: statusError } = await supabase
@@ -62,6 +63,7 @@ export async function fetchParkingLotsFromSupabase(): Promise<ParkingLot[]> {
         totalSpaces: status.total_spaces,
         availableSpaces: status.available_spaces,
         updatedAt: status.updated_at,
+        type: lot.type as ParkingLot['type'],
       },
     ];
   });

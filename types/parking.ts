@@ -12,6 +12,9 @@ export type District = '강남구' | '종로구' | '중구' | '성동구';
 /** 혼잡도 단계 */
 export type CongestionLevel = 'available' | 'moderate' | 'congested' | 'full';
 
+/** 주차장 유형 (노외: 별도 부지의 주차장 / 노상: 도로 위 구간 주차장) */
+export type ParkingLotType = 'offStreet' | 'onStreet';
+
 /** 주차장 원본 데이터 (parking_lots.json 스키마) */
 export interface ParkingLot {
   /** 고유 ID (slug 형태) */
@@ -36,6 +39,8 @@ export interface ParkingLot {
   availableSpaces: number;
   /** 마지막 업데이트 시각 (ISO 8601) */
   updatedAt: string;
+  /** 주차장 유형 (노외/노상) */
+  type: ParkingLotType;
 }
 
 /** 위/경도 좌표 쌍 */

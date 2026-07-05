@@ -31,6 +31,7 @@ create table if not exists public.parking_lots (
   longitude double precision not null,
   operation_hours text not null,
   fee text not null,
+  type text not null default 'offStreet' check (type in ('offStreet', 'onStreet')),
   created_at timestamptz not null default now()
 );
 

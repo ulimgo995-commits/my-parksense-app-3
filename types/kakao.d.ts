@@ -19,6 +19,7 @@ declare namespace kakao.maps {
   export class LatLngBounds {
     constructor(sw?: LatLng, ne?: LatLng);
     extend(latlng: LatLng): void;
+    contain(latlng: LatLng): boolean;
   }
 
   export interface MapOptions {
@@ -37,6 +38,7 @@ declare namespace kakao.maps {
     setLevel(level: number, options?: { anchor?: LatLng; animate?: boolean }): void;
     getLevel(): number;
     panTo(latlng: LatLng): void;
+    getBounds(): LatLngBounds;
     setBounds(
       bounds: LatLngBounds,
       paddingTop?: number,
@@ -94,6 +96,21 @@ declare namespace kakao.maps {
     setMap(map: Map | null): void;
     setPosition(latlng: LatLng): void;
     getPosition(): LatLng;
+  }
+
+  export interface PolylineOptions {
+    path: LatLng[];
+    strokeWeight?: number;
+    strokeColor?: string;
+    strokeOpacity?: number;
+    strokeStyle?: 'solid' | 'shortdash' | 'shortdot' | 'shortdashdot' | 'dash' | 'dot' | 'dashdot' | 'longdash';
+    map?: Map;
+  }
+
+  export class Polyline {
+    constructor(options: PolylineOptions);
+    setMap(map: Map | null): void;
+    setPath(path: LatLng[]): void;
   }
 
   export namespace event {

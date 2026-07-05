@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
-import { useFavorites } from '@/hooks/useFavorites';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
-import { useToast } from '@/hooks/useToast';
 import { CloseIcon } from '@/components/common/icons';
 import { logNavigationEvent } from '@/lib/supabase/navigationEvents';
 import { getKakaoDirectionsUrl } from '@/utils/kakaoLink';
@@ -14,6 +12,8 @@ import { ParkingDetails } from './ParkingDetails';
 interface BottomSheetProps {
   lot: ParkingLot | null;
   onClose: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: (lot: ParkingLot) => void;
 }
 
 const SHEET_HEIGHT_VH = 88;
@@ -25,13 +25,14 @@ const COLLAPSED_TRANSLATE_VH = SHEET_HEIGHT_VH - COLLAPSED_VISIBLE_VH;
  * 주차장 상세 정보 표시 컨테이너.
  * - Mobile(<md): 드래그 가능한 Bottom Sheet (Collapsed 42% / Expanded 88%)
  * - Desktop(>=md): 지도 위 좌측 하단에 떠 있는 고정 패널 (디자인 가이드 12. 반응형)
+ *
+ * 즐겨찾기 상태는 상위(HomeScreen)에서 단일 useFavorites 인스턴스로 관리하여
+ * Bottom Sheet / 내 주변 / 즐겨찾기 화면 간 상태가 항상 일치하도록 합니다.
  */
-export function BottomSheet({ lot, onClose }: BottomSheetProps) {
+export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite }: BottomSheetProps) {
   const isDesktop = useIsDesktop();
   const isOpen = lot !== null;
   const [displayedLot, setDisplayedLot] = useState<ParkingLot | null>(lot);
-  const { isFavorite, toggleFavorite } = useFavorites();
-  const { showToast } = useToast();
   const { snap, setSnap, isDragging, dragOffset, dragHandlers } = useBottomSheet({ isOpen, onClose });
 
   useEffect(() => {
@@ -49,19 +50,6 @@ export function BottomSheet({ lot, onClose }: BottomSheetProps) {
     window.open(getKakaoDirectionsUrl(displayedLot), '_blank', 'noopener,noreferrer');
     // 로그 기록은 화면 이동을 막지 않도록 결과를 기다리지 않습니다 (실패해도 내부에서 처리됨).
     void logNavigationEvent(displayedLot.id);
-  };
-
-  const handleToggleFavorite = async () => {
-    try {
-      const nowFavorite = await toggleFavorite(displayedLot.id);
-      showToast(
-        nowFavorite ? `${displayedLot.name}을(를) 즐겨찾기에 추가했어요` : '즐겨찾기에서 제거했어요',
-        nowFavorite ? 'success' : 'default'
-      );
-    } catch (err) {
-      console.warn('[BottomSheet] 즐겨찾기 처리 실패:', err);
-      showToast('즐겨찾기 처리에 실패했어요. 잠시 후 다시 시도해주세요.', 'error');
-    }
   };
 
   if (isDesktop) {
@@ -84,8 +72,8 @@ export function BottomSheet({ lot, onClose }: BottomSheetProps) {
           </div>
           <ParkingDetails
             lot={displayedLot}
-            isFavorite={isFavorite(displayedLot.id)}
-            onToggleFavorite={handleToggleFavorite}
+            isFavorite={isFavorite}
+            onToggleFavorite={() => onToggleFavorite(displayedLot)}
             onNavigate={handleNavigate}
           />
         </div>
@@ -124,9 +112,10 @@ export function BottomSheet({ lot, onClose }: BottomSheetProps) {
       <div className="flex-1 overflow-y-auto overscroll-contain">
         <ParkingDetails
           lot={displayedLot}
-          isFavorite={isFavorite(displayedLot.id)}
-          onToggleFavorite={handleToggleFavorite}
+          isFavorite={isFavorite}
+          onToggleFavorite={() => onToggleFavorite(displayedLot)}
           onNavigate={handleNavigate}
+          onShowDetails={snap === 'collapsed' ? () => setSnap('expanded') : undefined}
         />
       </div>
     </div>

@@ -9,16 +9,29 @@
 interface ParkingMarkerElements {
   root: HTMLDivElement;
   pin: HTMLDivElement;
+  label: HTMLDivElement;
 }
 
-export function createParkingMarkerElement(color: string, onClick: () => void): ParkingMarkerElements {
+interface CreateParkingMarkerOptions {
+  color: string;
+  availableSpaces: number;
+  statusLabel: string;
+  onClick: () => void;
+}
+
+export function createParkingMarkerElement({
+  color,
+  availableSpaces,
+  statusLabel,
+  onClick,
+}: CreateParkingMarkerOptions): ParkingMarkerElements {
   const root = document.createElement('div');
-  root.className = 'flex cursor-pointer flex-col items-center animate-marker-pop';
+  root.className = 'flex cursor-pointer flex-col items-center gap-1 animate-marker-pop';
   root.style.transformOrigin = 'bottom center';
 
   const pin = document.createElement('div');
   pin.className =
-    'flex h-9 w-9 items-center justify-center rounded-full border-[3px] border-white text-sm shadow-floating transition-transform duration-200 ease-out';
+    'flex h-10 w-10 items-center justify-center rounded-full border-[3px] border-white text-base shadow-floating transition-transform duration-200 ease-out';
   pin.style.backgroundColor = color;
   pin.textContent = 'P';
   pin.style.color = '#FFFFFF';
@@ -28,15 +41,39 @@ export function createParkingMarkerElement(color: string, onClick: () => void): 
   tail.style.width = '0';
   tail.style.height = '0';
   tail.style.marginTop = '-2px';
-  tail.style.borderLeft = '6px solid transparent';
-  tail.style.borderRight = '6px solid transparent';
-  tail.style.borderTop = `7px solid ${color}`;
+  tail.style.borderLeft = '7px solid transparent';
+  tail.style.borderRight = '7px solid transparent';
+  tail.style.borderTop = `8px solid ${color}`;
 
-  root.appendChild(pin);
-  root.appendChild(tail);
+  const pinWrap = document.createElement('div');
+  pinWrap.className = 'flex flex-col items-center';
+  pinWrap.appendChild(pin);
+  pinWrap.appendChild(tail);
+
+  // 핀 아래 "면수 + 상태" 라벨 카드 (디자인 참고: 흰 배경 카드에 숫자/상태 텍스트)
+  const label = document.createElement('div');
+  label.className =
+    'flex flex-col items-center rounded-md bg-white px-1.5 py-0.5 leading-none shadow-card';
+
+  const spacesText = document.createElement('span');
+  spacesText.className = 'text-[11px] font-bold text-text-primary';
+  spacesText.textContent = `${availableSpaces}면`;
+
+  const statusText = document.createElement('span');
+  statusText.className = 'text-[10px] font-semibold';
+  statusText.style.color = color;
+  statusText.textContent = statusLabel;
+
+  label.appendChild(spacesText);
+  label.appendChild(statusText);
+
+  // 라벨을 핀 "위"에 배치해야 핀 꼬리(root 맨 아래)가 실제 좌표와 정확히 일치합니다
+  // (CustomOverlay yAnchor=1 이 root의 맨 아래를 좌표에 고정하기 때문).
+  root.appendChild(label);
+  root.appendChild(pinWrap);
   root.addEventListener('click', onClick);
 
-  return { root, pin };
+  return { root, pin, label };
 }
 
 /** 선택된 마커에 확대 + Bounce 효과를 적용/해제합니다. */

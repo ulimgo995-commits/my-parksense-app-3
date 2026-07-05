@@ -8,6 +8,10 @@ import {
   createUserLocationElement,
   setParkingMarkerSelected,
 } from '@/lib/kakao/markerElements';
+import { createRouteEtaElement } from '@/lib/kakao/routeElements';
+import { getDistanceInMeters } from '@/utils/distance';
+import { estimateEtaMinutes } from '@/utils/eta';
+import { formatDistance } from '@/utils/format';
 import type { LatLng, ParkingLot } from '@/types/parking';
 import { MapLoadingSkeleton } from './MapLoadingSkeleton';
 import { MapErrorState } from './MapErrorState';
@@ -18,6 +22,10 @@ const DEFAULT_LEVEL = 6;
 
 export interface KakaoMapHandle {
   panTo: (position: LatLng, level?: number) => void;
+  /** 현재 지도 화면(뷰포트) 안에 있는 주차장 id 목록을 반환합니다 ("이 지역 검색" 기능용). */
+  getVisibleLotIds: () => string[];
+  /** 지도 컨테이너 크기가 바뀐 뒤(탭 전환 등) 강제로 다시 계산합니다. */
+  relayout: () => void;
 }
 
 interface KakaoMapProps {
@@ -25,12 +33,15 @@ interface KakaoMapProps {
   selectedLotId: string | null;
   userLocation: LatLng | null;
   onSelectLot: (lot: ParkingLot) => void;
+  /** 사용자가 직접 지도를 드래그했을 때 호출됩니다 (프로그래밍적 panTo와 구분하기 위함). */
+  onUserDrag?: () => void;
 }
 
 interface MarkerEntry {
   overlay: kakao.maps.CustomOverlay;
   root: HTMLDivElement;
   pin: HTMLDivElement;
+  label: HTMLDivElement;
 }
 
 /**
@@ -39,7 +50,7 @@ interface MarkerEntry {
  * (Kakao Maps SDK 자체가 명령형 API이기 때문에 선언형으로 감싸는 것보다 훨씬 안정적입니다.)
  */
 export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap(
-  { parkingLots, selectedLotId, userLocation, onSelectLot },
+  { parkingLots, selectedLotId, userLocation, onSelectLot, onUserDrag },
   ref
 ) {
   const { status, error } = useKakaoLoader();
@@ -47,11 +58,23 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const mapRef = useRef<kakao.maps.Map | null>(null);
   const markersRef = useRef<Map<string, MarkerEntry>>(new Map());
   const userOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
+  const routeLineRef = useRef<kakao.maps.Polyline | null>(null);
+  const routeEtaOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const onSelectLotRef = useRef(onSelectLot);
+  const onUserDragRef = useRef(onUserDrag);
+  const parkingLotsRef = useRef(parkingLots);
 
   useEffect(() => {
     onSelectLotRef.current = onSelectLot;
   }, [onSelectLot]);
+
+  useEffect(() => {
+    onUserDragRef.current = onUserDrag;
+  }, [onUserDrag]);
+
+  useEffect(() => {
+    parkingLotsRef.current = parkingLots;
+  }, [parkingLots]);
 
   useImperativeHandle(
     ref,
@@ -63,6 +86,18 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         if (level !== undefined) {
           map.setLevel(level, { animate: true });
         }
+      },
+      getVisibleLotIds: () => {
+        const map = mapRef.current;
+        if (!map) return [];
+        const bounds = map.getBounds();
+        return parkingLotsRef.current
+          .filter((lot) => bounds.contain(new window.kakao.maps.LatLng(lot.lat, lot.lng)))
+          .map((lot) => lot.id);
+      },
+      relayout: () => {
+        // 탭 전환 등으로 display:none 상태였다가 다시 보일 때, 지도 크기를 다시 계산하도록 합니다.
+        mapRef.current?.relayout();
       },
     }),
     []
@@ -80,7 +115,14 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
 
     const handleResize = () => map.relayout();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    const handleDragEnd = () => onUserDragRef.current?.();
+    window.kakao.maps.event.addListener(map, 'dragend', handleDragEnd);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.kakao.maps.event.removeListener(map, 'dragend', handleDragEnd);
+    };
   }, [status]);
 
   // 2) 주차장 마커 생성/제거 (목록이 바뀔 때만)
@@ -101,7 +143,12 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       if (markersRef.current.has(lot.id)) return;
 
       const meta = getCongestionMeta(lot.totalSpaces, lot.availableSpaces);
-      const { root, pin } = createParkingMarkerElement(meta.color, () => onSelectLotRef.current(lot));
+      const { root, pin, label } = createParkingMarkerElement({
+        color: meta.color,
+        availableSpaces: lot.availableSpaces,
+        statusLabel: meta.label,
+        onClick: () => onSelectLotRef.current(lot),
+      });
 
       const overlay = new window.kakao.maps.CustomOverlay({
         position: new window.kakao.maps.LatLng(lot.lat, lot.lng),
@@ -111,7 +158,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         xAnchor: 0.5,
       });
 
-      markersRef.current.set(lot.id, { overlay, root, pin });
+      markersRef.current.set(lot.id, { overlay, root, pin, label });
     });
   }, [parkingLots, status]);
 
@@ -149,6 +196,56 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       zIndex: 5,
     });
   }, [userLocation, status]);
+
+  // 5) 현재위치 → 선택된 주차장 경로선 + 도착 예상 시간 카드
+  // (실제 도로 경로 API 대신 직선 거리 기반 근사치를 사용합니다.)
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'success') return;
+
+    const selectedLot = parkingLots.find((lot) => lot.id === selectedLotId);
+
+    if (!selectedLot || !userLocation) {
+      routeLineRef.current?.setMap(null);
+      routeLineRef.current = null;
+      routeEtaOverlayRef.current?.setMap(null);
+      routeEtaOverlayRef.current = null;
+      return;
+    }
+
+    const userPoint = new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng);
+    const lotPoint = new window.kakao.maps.LatLng(selectedLot.lat, selectedLot.lng);
+    const path = [userPoint, lotPoint];
+
+    if (routeLineRef.current) {
+      routeLineRef.current.setPath(path);
+    } else {
+      routeLineRef.current = new window.kakao.maps.Polyline({
+        path,
+        map,
+        strokeWeight: 4,
+        strokeColor: '#2563EB',
+        strokeOpacity: 0.85,
+        strokeStyle: 'solid',
+      });
+    }
+
+    const distanceMeters = getDistanceInMeters(userLocation, { lat: selectedLot.lat, lng: selectedLot.lng });
+    const etaMinutes = estimateEtaMinutes(distanceMeters);
+    const midpoint = new window.kakao.maps.LatLng(
+      (userLocation.lat + selectedLot.lat) / 2,
+      (userLocation.lng + selectedLot.lng) / 2
+    );
+
+    routeEtaOverlayRef.current?.setMap(null);
+    routeEtaOverlayRef.current = new window.kakao.maps.CustomOverlay({
+      position: midpoint,
+      content: createRouteEtaElement(etaMinutes, formatDistance(distanceMeters)),
+      map,
+      yAnchor: 1.6,
+      zIndex: 6,
+    });
+  }, [selectedLotId, userLocation, parkingLots, status]);
 
   return (
     <div className="relative h-full w-full">

@@ -9,6 +9,10 @@ const config: Config = {
     './app/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './hooks/**/*.{ts,tsx}',
+    // lib/kakao 의 마커/경로선 DOM 팩토리가 Tailwind 클래스 문자열을 직접 사용하므로
+    // 반드시 content에 포함되어야 해당 클래스들이 실제 빌드에 생성됩니다.
+    './lib/**/*.{ts,tsx}',
+    './utils/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {

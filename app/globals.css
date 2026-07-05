@@ -17,6 +17,16 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 필터 칩 같은 가로 스크롤 행에서 스크롤바를 완전히 숨김 */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* 스크롤바를 얇게 표시 (Bottom Sheet, 검색 드롭다운 등) */
 ::-webkit-scrollbar {
   width: 6px;

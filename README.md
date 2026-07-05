@@ -79,20 +79,24 @@ parksense/
 │   ├── error.tsx             # 전역 에러 바운더리
 │   └── globals.css           # Tailwind 진입점 + 전역 스타일
 ├── components/
-│   ├── home/                 # Home 화면 조립 (상태 관리)
-│   ├── map/                  # 카카오맵, 현재 위치 버튼, 범례, 로딩/에러 UI
-│   ├── search/                # 검색창 + 자동완성
-│   ├── bottom-sheet/          # Bottom Sheet / Desktop 패널, 상세 정보
-│   ├── permission/            # 위치 권한 안내 배너
-│   └── common/                 # Button, Skeleton, Toast, 아이콘 등 공용 UI
-├── hooks/                     # useGeolocation, useKakaoLoader, useParkingLots,
-│                              # useBottomSheet, useFavorites, useDebounce 등
+│   ├── home/                 # Home 화면 조립 (상태 관리, 탭 전환)
+│   ├── map/                  # 카카오맵, 현재 위치 버튼, 범례, 이 지역 검색, 로딩/에러 UI
+│   ├── search/                # 검색창 + 자동완성 + 필터 바(칩/모달)
+│   ├── bottom-sheet/          # Bottom Sheet / Desktop 패널, 상세 정보, 혼잡도 추이 차트
+│   ├── nearby/                 # "내 주변" 탭 (거리순 목록)
+│   ├── favorites/               # "즐겨찾기" 탭
+│   ├── profile/                  # "내 정보" 탭
+│   ├── navigation/                # 하단 탭바
+│   ├── permission/                 # 위치 권한 안내 배너
+│   └── common/                      # Button, Skeleton, Toast, 아이콘, 목록 아이템 등 공용 UI
+├── hooks/                     # useGeolocation, useKakaoLoader, useParkingLots, useParkingFilters,
+│                              # useBottomSheet, useFavorites, useDebounce, useMediaQuery 등
 ├── lib/
-│   ├── kakao/                 # Kakao SDK 로더, 마커 DOM 팩토리
-│   ├── parking/                # 혼잡도 계산, 데이터 접근 계층(Repository)
+│   ├── kakao/                 # Kakao SDK 로더, 마커/경로선 DOM 팩토리
+│   ├── parking/                # 혼잡도 계산, 주차 유형, 데이터 접근 계층(Repository)
 │   └── supabase/               # Supabase 클라이언트 + 즐겨찾기/길찾기 로그 CRUD
-├── types/                      # ParkingLot 등 도메인 타입, Kakao SDK 타입 선언
-├── utils/                       # 거리 계산, 포맷터, 카카오 길찾기 URL 등
+├── types/                      # ParkingLot 등 도메인 타입, 탭 타입, Kakao SDK 타입 선언
+├── utils/                       # 거리/ETA 계산, 포맷터, 요금 파싱, 시간대별 추이·소셜 카운트 샘플 생성 등
 ├── data/
 │   └── parking_lots.json       # 주차장 데이터 단일 소스 (요구사항 10)
 ├── database/
@@ -104,12 +108,18 @@ parksense/
 ## 5. 주요 기능
 
 - **현재 위치 기반 지도**: Geolocation API로 현재 위치를 가져와 지도 중심을 이동하고, 파란색 펄스 마커로 표시합니다.
-- **혼잡도 마커**: 여유(🟢)/보통(🟡)/혼잡(🔴)/만차(⚫) 4단계로 색상이 구분된 마커를 지도에 표시하며, 클릭 시 확대 + Bounce 애니메이션이 적용됩니다.
-- **Bottom Sheet / Desktop 패널**: 마커 클릭 시 주차장명, 주소, 운영시간, 요금, 총/가능 면수, 혼잡도, 마지막 업데이트 시간을 보여줍니다. 모바일에서는 드래그로 collapsed(42%)/expanded(88%) 상태를 전환할 수 있고, 데스크톱에서는 지도와 동시에 볼 수 있는 고정 패널로 표시됩니다.
+- **혼잡도 마커**: 여유(🟢)/보통(🟡)/혼잡(🔴)/만차(⚫) 4단계로 색상이 구분된 핀 마커 아래 "가능 면수 + 상태" 라벨을 함께 표시하며, 클릭 시 확대 + Bounce 애니메이션이 적용됩니다.
+- **필터 바**: 실시간 주차 가능(혼잡도)/요금/운영시간/주차 유형(노외·노상)을 칩 드롭다운 또는 통합 필터 패널로 조합해 지도·검색 결과를 동시에 좁힐 수 있습니다.
+- **이 지역 검색**: 지도를 드래그하면 플로팅 버튼이 나타나 현재 화면 범위 안의 주차장 개수를 바로 확인할 수 있습니다.
+- **경로선 + 도착 예상 시간**: 주차장을 선택하면 현재 위치까지 직선 경로와 "도착까지 N분 · 거리" 카드를 지도 위에 표시합니다 (실제 도로 경로 API 대신 직선거리 기반 근사치).
+- **Bottom Sheet / Desktop 패널**: 주차장명, 주소, 실시간 업데이트(새로고침), 현재 가능 면수, **24시간 혼잡도 추이 그래프**, 운영시간·요금·총면수·**길찾기 중인 사람 수**, 길찾기/즐겨찾기 버튼을 보여줍니다. 모바일에서는 드래그로 collapsed(42%)/expanded(88%) 상태를 전환할 수 있고("상세 정보 보기" 버튼으로도 확장 가능), 데스크톱에서는 지도와 동시에 볼 수 있는 고정 패널로 표시됩니다.
+- **하단 탭 내비게이션**: 주차장 찾기 / 내 주변(거리순 목록) / 즐겨찾기 / 내 정보 4개 탭으로 화면을 전환하며, 지도는 탭 전환 시에도 다시 로드되지 않도록 상태를 유지합니다.
 - **검색 & 자동완성**: 주차장명/주소로 검색하면 실시간 자동완성 결과가 나타나고, 선택 시 해당 마커로 지도가 이동합니다.
-- **길찾기 / 즐겨찾기 (Supabase 연동)**: 길찾기 버튼은 카카오맵 길찾기 페이지를 새 탭으로 열면서 `navigation_events` 테이블에 클릭 로그를 남기고, 즐겨찾기 버튼은 `favorites` 테이블에 추가/삭제하며 Bottom Sheet를 다시 열 때마다 최신 목록을 조회합니다. (낙관적 업데이트 + 실패 시 롤백/에러 토스트)
-- **Loading / Error / Empty 처리**: 지도·검색창 Skeleton UI, 위치 권한 거부/지도 로드 실패/검색 결과 없음/주차장 없음 등 예외 상황에 대한 전용 UI를 제공합니다.
+- **길찾기 / 즐겨찾기 (Supabase 연동)**: 길찾기 버튼은 카카오맵 길찾기 페이지를 새 탭으로 열면서 `navigation_events` 테이블에 클릭 로그를 남기고, 즐겨찾기 버튼은 `favorites` 테이블에 추가/삭제합니다. 즐겨찾기 상태는 Bottom Sheet·내 주변·즐겨찾기 탭이 하나의 훅(`useFavorites`)을 공유해 항상 일치합니다. (낙관적 업데이트 + 실패 시 롤백/에러 토스트)
+- **Loading / Error / Empty 처리**: 지도·검색창 Skeleton UI, 위치 권한 거부/지도 로드 실패/검색·필터 결과 없음/주차장 없음 등 예외 상황에 대한 전용 UI를 제공합니다.
 - **반응형 레이아웃**: Mobile → Tablet → Desktop 순으로 자연스럽게 확장되며, `md` 이상에서는 지도와 상세 패널을 동시에 볼 수 있습니다.
+
+> **참고**: 24시간 혼잡도 추이 그래프와 "길찾기 중인 사람 수"는 실시간 이력·사용자 추적 데이터가 없는 MVP 단계라 `utils/congestionTrend.ts`, `utils/socialSignal.ts` 에서 주차장 id 기반 **결정적 샘플 데이터**로 생성합니다 (새로고침해도 값이 바뀌지 않음). 실제 서비스 전환 시 이 두 함수만 실데이터 조회로 교체하면 됩니다.
 
 ## 6. 데이터 구조
 
@@ -128,6 +138,7 @@ interface ParkingLot {
   totalSpaces: number;
   availableSpaces: number;
   updatedAt: string; // ISO 8601
+  type: 'offStreet' | 'onStreet'; // 노외 / 노상 (필터 바에서 사용)
 }
 ```
 
@@ -146,7 +157,7 @@ interface ParkingLot {
 
 | 테이블 | 용도 | 비고 |
 | --- | --- | --- |
-| `parking_lots` | 주차장 기본 정보 | `id` 는 `data/parking_lots.json` 의 slug(text)를 그대로 기본키로 사용 |
+| `parking_lots` | 주차장 기본 정보 (노외/노상 유형 포함) | `id` 는 `data/parking_lots.json` 의 slug(text)를 그대로 기본키로 사용 |
 | `parking_status` | 현재 혼잡도/가능면수 | `parking_lot_id` UNIQUE — 주차장당 "현재 상태" 1행만 유지, 향후 upsert로 갱신 |
 | `favorites` | 즐겨찾기 | `parking_lot_id` UNIQUE — 중복 즐겨찾기 방지 |
 | `navigation_events` | 길찾기 클릭 로그 | 집계/분석용 |
