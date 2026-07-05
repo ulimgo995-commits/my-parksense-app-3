@@ -51,6 +51,11 @@ export function useParkingFilters(parkingLots: ParkingLot[]) {
     });
   }, []);
 
+  /** 드롭다운의 "전체" 옵션 — 혼잡도 필터만 기본값(전체 선택)으로 되돌립니다. */
+  const selectAllCongestionLevels = useCallback(() => {
+    setFilters((prev) => ({ ...prev, congestionLevels: [...CONGESTION_LEVELS] }));
+  }, []);
+
   const setMaxFee = useCallback((maxFee: number | null) => {
     setFilters((prev) => ({ ...prev, maxFee }));
   }, []);
@@ -78,6 +83,7 @@ export function useParkingFilters(parkingLots: ParkingLot[]) {
     filters,
     filteredLots,
     toggleCongestionLevel,
+    selectAllCongestionLevels,
     setMaxFee,
     setHoursMode,
     setType,

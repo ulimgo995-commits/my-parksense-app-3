@@ -21,6 +21,7 @@ export function FilterModal({
   onClose,
   filters,
   toggleCongestionLevel,
+  selectAllCongestionLevels,
   setMaxFee,
   setHoursMode,
   setType,
@@ -44,7 +45,11 @@ export function FilterModal({
         <div className="space-y-5">
           <section>
             <p className={SECTION_TITLE_CLASS}>실시간 주차 가능</p>
-            <CongestionFilterOptions filters={filters} toggleCongestionLevel={toggleCongestionLevel} />
+            <CongestionFilterOptions
+              filters={filters}
+              toggleCongestionLevel={toggleCongestionLevel}
+              selectAllCongestionLevels={selectAllCongestionLevels}
+            />
           </section>
           <section>
             <p className={SECTION_TITLE_CLASS}>요금</p>

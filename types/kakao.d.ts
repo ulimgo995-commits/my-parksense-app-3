@@ -38,6 +38,7 @@ declare namespace kakao.maps {
     setLevel(level: number, options?: { anchor?: LatLng; animate?: boolean }): void;
     getLevel(): number;
     panTo(latlng: LatLng): void;
+    panBy(dx: number, dy: number): void;
     getBounds(): LatLngBounds;
     setBounds(
       bounds: LatLngBounds,

@@ -116,9 +116,9 @@ export function ParkingDetails({ lot, isFavorite, onToggleFavorite, onNavigate, 
           aria-pressed={isFavorite}
           aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
           onClick={onToggleFavorite}
-          className={`w-12 shrink-0 px-0 ${isFavorite ? '!border-primary !text-primary' : ''}`}
+          className={`w-14 shrink-0 px-0 ${isFavorite ? '!border-primary !text-primary' : ''}`}
         >
-          <StarIcon filled={isFavorite} />
+          <StarIcon size={26} filled={isFavorite} />
         </Button>
       </div>
 

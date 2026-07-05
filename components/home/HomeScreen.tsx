@@ -20,9 +20,13 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 import { useParkingLots } from '@/hooks/useParkingLots';
 import { useParkingFilters } from '@/hooks/useParkingFilters';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useToast } from '@/hooks/useToast';
 import type { ParkingLot } from '@/types/parking';
 import type { AppTab } from '@/types/navigation';
+
+/** 데스크톱 좌측 상세 패널(w-[400px])에 선택한 마커가 가려지지 않도록 지도 중심을 오른쪽으로 미는 픽셀 값 */
+const DESKTOP_PANEL_OFFSET_PX = 200;
 
 /**
  * ParkSense 메인 화면.
@@ -37,12 +41,17 @@ export function HomeScreen() {
   const { filteredLots } = parkingFilters;
   const { isFavorite, toggleFavorite, isLoaded: favoritesLoaded } = useFavorites();
   const { showToast } = useToast();
+  const isDesktop = useIsDesktop();
 
   const [activeTab, setActiveTab] = useState<AppTab>('find');
   const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   const [showSearchAreaButton, setShowSearchAreaButton] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const mapRef = useRef<KakaoMapHandle>(null);
+  // 비동기 콜백(위치 업데이트 effect)에서 최신 선택 상태를 읽기 위한 ref (effect 의존성 배열에 넣지 않기 위함)
+  const selectedLotIdRef = useRef(selectedLotId);
+  selectedLotIdRef.current = selectedLotId;
 
   // 최초 진입 시 자동으로 위치 권한을 요청합니다 (requirements.md 3-1 Home 필수 기능).
   useEffect(() => {
@@ -51,11 +60,15 @@ export function HomeScreen() {
   }, []);
 
   // 현재 위치를 새로 얻을 때마다(최초 진입 포함) 지도 중심을 이동합니다.
+  // (아래 handleCurrentLocationClick 에서 먼저 즉시 이동시키더라도, 비동기로 위치가
+  // 갱신되면서 이 effect가 다시 실행되어 데스크톱 패널 보정을 덮어쓰지 않도록 여기서도 동일하게 보정합니다.)
   useEffect(() => {
-    if (userLocation) {
-      mapRef.current?.panTo(userLocation, 5);
+    if (!userLocation) return;
+    mapRef.current?.panTo(userLocation, 5);
+    if (isDesktop && selectedLotIdRef.current !== null) {
+      mapRef.current?.panByPixels(-DESKTOP_PANEL_OFFSET_PX, 0);
     }
-  }, [userLocation]);
+  }, [userLocation, isDesktop]);
 
   useEffect(() => {
     if (geoStatus === 'error') setIsBannerDismissed(false);
@@ -71,24 +84,43 @@ export function HomeScreen() {
 
   const selectedLot = parkingLots.find((lot) => lot.id === selectedLotId) ?? null;
   const favoriteLots = useMemo(() => parkingLots.filter((lot) => isFavorite(lot.id)), [parkingLots, isFavorite]);
+  const visibleLots = useMemo(
+    () => (favoritesOnly ? filteredLots.filter((lot) => isFavorite(lot.id)) : filteredLots),
+    [filteredLots, favoritesOnly, isFavorite]
+  );
   const isSheetOpen = selectedLotId !== null;
   const showTabBar = activeTab !== 'find' || !isSheetOpen;
 
-  const handleSelectLot = useCallback((lot: ParkingLot) => {
-    setActiveTab('find');
-    setSelectedLotId(lot.id);
-    setShowSearchAreaButton(false);
-    mapRef.current?.panTo({ lat: lot.lat, lng: lot.lng }, 4);
-  }, []);
+  const handleSelectLot = useCallback(
+    (lot: ParkingLot) => {
+      setActiveTab('find');
+      setSelectedLotId(lot.id);
+      setShowSearchAreaButton(false);
+      mapRef.current?.panTo({ lat: lot.lat, lng: lot.lng }, 4);
+      // 데스크톱에서는 좌측 상세 패널이 곧 열리므로, 마커가 패널에 가리지 않도록 중심을 오른쪽으로 밀어줍니다.
+      if (isDesktop) {
+        mapRef.current?.panByPixels(-DESKTOP_PANEL_OFFSET_PX, 0);
+      }
+    },
+    [isDesktop]
+  );
 
-  const handleCloseSheet = useCallback(() => setSelectedLotId(null), []);
+  const handleCloseSheet = useCallback(() => {
+    setSelectedLotId(null);
+    if (isDesktop) {
+      mapRef.current?.panByPixels(DESKTOP_PANEL_OFFSET_PX, 0);
+    }
+  }, [isDesktop]);
 
   const handleCurrentLocationClick = useCallback(() => {
     if (userLocation) {
       mapRef.current?.panTo(userLocation, 5);
+      if (isDesktop && isSheetOpen) {
+        mapRef.current?.panByPixels(-DESKTOP_PANEL_OFFSET_PX, 0);
+      }
     }
     requestLocation();
-  }, [requestLocation, userLocation]);
+  }, [requestLocation, userLocation, isDesktop, isSheetOpen]);
 
   const handleToggleFavorite = useCallback(
     async (lot: ParkingLot) => {
@@ -108,12 +140,12 @@ export function HomeScreen() {
 
   const handleSearchThisArea = useCallback(() => {
     const visibleIds = mapRef.current?.getVisibleLotIds() ?? [];
-    const visibleCount = filteredLots.filter((lot) => visibleIds.includes(lot.id)).length;
+    const visibleCount = visibleLots.filter((lot) => visibleIds.includes(lot.id)).length;
     setShowSearchAreaButton(false);
     showToast(
       visibleCount > 0 ? `이 지역에 주차장 ${visibleCount}곳이 있어요` : '이 지역에는 표시할 주차장이 없어요'
     );
-  }, [filteredLots, showToast]);
+  }, [visibleLots, showToast]);
 
   const showPermissionBanner = geoStatus === 'error' && !isBannerDismissed;
   const locationButtonBottomClass = isSheetOpen ? 'bottom-[calc(42vh+16px)] md:bottom-8' : 'bottom-24 md:bottom-20';
@@ -125,7 +157,7 @@ export function HomeScreen() {
       <div className={`absolute inset-0 ${activeTab === 'find' ? 'block' : 'hidden'}`}>
         <KakaoMap
           ref={mapRef}
-          parkingLots={filteredLots}
+          parkingLots={visibleLots}
           selectedLotId={selectedLotId}
           userLocation={userLocation}
           onSelectLot={handleSelectLot}
@@ -141,7 +173,7 @@ export function HomeScreen() {
                 <Skeleton className="h-12 rounded-full" />
               ) : (
                 <SearchBar
-                  parkingLots={filteredLots}
+                  parkingLots={visibleLots}
                   userLocation={userLocation ?? SEOUL_CITY_HALL}
                   onSelect={handleSelectLot}
                 />
@@ -149,7 +181,11 @@ export function HomeScreen() {
             </div>
             {lotsStatus !== 'loading' && (
               <div className="pointer-events-auto w-full max-w-xl">
-                <FilterBar {...parkingFilters} />
+                <FilterBar
+                  {...parkingFilters}
+                  favoritesOnly={favoritesOnly}
+                  onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
+                />
               </div>
             )}
             {showPermissionBanner && errorReason && (
@@ -206,13 +242,13 @@ export function HomeScreen() {
             </div>
           )}
 
-          {lotsStatus === 'success' && parkingLots.length > 0 && filteredLots.length === 0 && (
+          {lotsStatus === 'success' && parkingLots.length > 0 && visibleLots.length === 0 && (
             <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center">
               <div className="pointer-events-auto rounded-2xl bg-white/95 shadow-floating">
                 <EmptyState
                   icon="🔍"
                   title="조건에 맞는 주차장이 없어요"
-                  description="필터 조건을 조정해보세요."
+                  description={favoritesOnly ? '즐겨찾기한 주차장이 없어요.' : '필터 조건을 조정해보세요.'}
                 />
               </div>
             </div>

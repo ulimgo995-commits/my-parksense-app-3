@@ -22,6 +22,8 @@ const DEFAULT_LEVEL = 6;
 
 export interface KakaoMapHandle {
   panTo: (position: LatLng, level?: number) => void;
+  /** 지도 중심을 화면 픽셀 단위로 이동합니다 (데스크톱 사이드 패널에 가려지지 않도록 보정하는 용도). */
+  panByPixels: (dx: number, dy: number) => void;
   /** 현재 지도 화면(뷰포트) 안에 있는 주차장 id 목록을 반환합니다 ("이 지역 검색" 기능용). */
   getVisibleLotIds: () => string[];
   /** 지도 컨테이너 크기가 바뀐 뒤(탭 전환 등) 강제로 다시 계산합니다. */
@@ -86,6 +88,9 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         if (level !== undefined) {
           map.setLevel(level, { animate: true });
         }
+      },
+      panByPixels: (dx, dy) => {
+        mapRef.current?.panBy(dx, dy);
       },
       getVisibleLotIds: () => {
         const map = mapRef.current;

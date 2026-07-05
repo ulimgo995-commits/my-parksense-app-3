@@ -34,12 +34,21 @@ function RadioRow({ label, selected, onSelect }: RadioRowProps) {
 interface CongestionFilterOptionsProps {
   filters: UseParkingFiltersResult['filters'];
   toggleCongestionLevel: UseParkingFiltersResult['toggleCongestionLevel'];
+  selectAllCongestionLevels: UseParkingFiltersResult['selectAllCongestionLevels'];
 }
 
-/** 실시간 주차 가능(혼잡도) 필터 — 복수 선택 가능 */
-export function CongestionFilterOptions({ filters, toggleCongestionLevel }: CongestionFilterOptionsProps) {
+/** 실시간 주차 가능(혼잡도) 필터 — 복수 선택 가능 + "전체" 단축 옵션 */
+export function CongestionFilterOptions({
+  filters,
+  toggleCongestionLevel,
+  selectAllCongestionLevels,
+}: CongestionFilterOptionsProps) {
+  const isAllSelected = filters.congestionLevels.length === CONGESTION_LEVELS.length;
+
   return (
     <div className="flex w-48 flex-col gap-0.5">
+      <RadioRow label="전체" selected={isAllSelected} onSelect={selectAllCongestionLevels} />
+      <div className="my-1 h-px bg-divider" />
       {CONGESTION_LEVELS.map((level) => {
         const meta = getCongestionMetaByLevel(level);
         const checked = filters.congestionLevels.includes(level);
