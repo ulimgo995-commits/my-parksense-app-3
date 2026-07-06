@@ -89,6 +89,30 @@ export function setParkingMarkerSelected(elements: ParkingMarkerElements, select
   }
 }
 
+function applyClusterSize(el: HTMLDivElement, count: number): void {
+  const size = count < 10 ? 38 : count < 50 ? 46 : count < 200 ? 54 : 62;
+  el.style.width = `${size}px`;
+  el.style.height = `${size}px`;
+  el.style.fontSize = count < 100 ? '13px' : '12px';
+}
+
+/** 마커가 많이 겹칠 때 대신 표시하는 클러스터(묶음) 마커 */
+export function createClusterElement(count: number, onClick: () => void): HTMLDivElement {
+  const root = document.createElement('div');
+  root.className =
+    'flex cursor-pointer items-center justify-center rounded-full border-2 border-white bg-primary font-bold text-white shadow-floating transition-transform duration-200 ease-out hover:scale-110 animate-marker-pop';
+  applyClusterSize(root, count);
+  root.textContent = String(count);
+  root.addEventListener('click', onClick);
+  return root;
+}
+
+/** 클러스터에 속한 주차장 개수가 바뀌었을 때(뷰포트 이동 등) 기존 DOM을 재사용하며 갱신 */
+export function updateClusterElement(el: HTMLDivElement, count: number): void {
+  el.textContent = String(count);
+  applyClusterSize(el, count);
+}
+
 export function createUserLocationElement(): HTMLDivElement {
   const root = document.createElement('div');
   root.className = 'relative flex h-4 w-4 items-center justify-center';
