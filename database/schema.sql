@@ -25,7 +25,8 @@ create extension if not exists "pgcrypto";
 create table if not exists public.parking_lots (
   id text primary key,
   name text not null,
-  district text not null check (district in ('강남구', '종로구', '중구', '성동구')),
+  -- 서울 전역(추후 전국)의 실제 자치구/시군구명이 들어오므로 고정 목록 체크 제약은 두지 않습니다.
+  district text not null,
   address text not null,
   latitude double precision not null,
   longitude double precision not null,
