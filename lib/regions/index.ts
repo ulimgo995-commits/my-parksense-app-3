@@ -1,4 +1,5 @@
 import { fetchDaejeonLiveStatuses } from './daejeon';
+import { fetchGangneungLiveStatuses } from './gangneung';
 import type { RegionAdapter } from './types';
 
 /**
@@ -8,6 +9,7 @@ import type { RegionAdapter } from './types';
  */
 export const REGION_ADAPTERS: RegionAdapter[] = [
   { id: 'daejeon', label: '대전광역시', fetchLiveStatuses: fetchDaejeonLiveStatuses },
+  { id: 'gangneung', label: '강원특별자치도 강릉시', fetchLiveStatuses: fetchGangneungLiveStatuses },
 ];
 
 export type { LiveStatusUpdate, RegionAdapter } from './types';

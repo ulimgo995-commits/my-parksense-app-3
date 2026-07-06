@@ -6,7 +6,7 @@
 
 현재 대부분의 지도 서비스는 주차장의 위치는 제공하지만, 지금 얼마나 여유가 있는지는 직관적으로 확인하기 어렵습니다. ParkSense는 지도 위 마커 색상만으로 혼잡도(여유/보통/혼잡/만차)를 즉시 파악할 수 있게 하여, 운전자가 주차장을 찾아 헤매는 시간을 줄여줍니다.
 
-이번 버전은 **대전광역시 실시간 주차장 13곳**(대전광역시_실시간 주차장 정보 API 기반, 위치·요금·운영시간뿐 아니라 실시간 잔여면수까지 실제 데이터)을 대상으로 하며, 향후 다른 시/도 실시간 API 추가 연동 및 확장을 고려하여 설계되었습니다.
+이번 버전은 **대전광역시 13곳 + 강원특별자치도 강릉시 13곳, 총 26곳의 실시간 주차장**(지자체별 실시간 주차장 API 기반, 위치·운영시간뿐 아니라 실시간 잔여면수까지 실제 데이터)을 대상으로 하며, 향후 다른 시/도 실시간 API 추가 연동 및 확장을 고려하여 설계되었습니다.
 
 ## 2. 기술 스택
 
@@ -50,7 +50,7 @@ NEXT_PUBLIC_KAKAO_MAP_API_KEY=발급받은_JavaScript_키
 
 1. [Supabase SQL Editor](https://supabase.com/dashboard/project/ucuqphqplzjywegngmsm/sql/new) 접속
 2. `database/schema.sql` 내용을 붙여넣고 실행 (테이블 4개 + 외래키 + RLS 정책 생성)
-3. `database/seed.sql` 내용을 붙여넣고 실행 (`data/parking_lots.json` 의 13개 주차장을 `parking_lots`/`parking_status` 테이블에 적재)
+3. `database/seed.sql` 내용을 붙여넣고 실행 (`data/parking_lots.json` 의 26개 주차장을 `parking_lots`/`parking_status` 테이블에 적재)
 
 `seed.sql` 은 실행 시작 시 `parking_lots` 테이블을 `truncate ... cascade` 로 비운 뒤 새로 적재합니다(이전 지역 데이터가 남아있으면 함께 삭제됩니다). 이후 재실행 시에는 `on conflict ... do update` 로 upsert 되어 안전합니다.
 
@@ -125,15 +125,18 @@ parksense/
 
 `data/parking_lots.json` 하나만 애플리케이션의 데이터 소스로 사용합니다 (하드코딩 금지).
 
-이 파일은 **대전광역시_실시간 주차장 정보 API**(`apis.data.go.kr/6300000/pis/parkinglotIF`)에서 받아온 대전 전체 756개 주차장 중, **실시간 잔여면수(`resQty`)가 실제 의미 있는 값으로 제공되는 13곳만 선별**해 생성했습니다. 나머지는 (1) 위치/요금/운영시간 같은 기본 정보만 있고 실시간 값이 없거나(`"NONE"`, 740곳) (2) 실시간 필드는 있지만 총면수·잔여면수가 둘 다 0으로 내려와 데이터를 신뢰할 수 없는 경우(3곳)라 제외했습니다. 이름/주소/좌표/총면수/요금/운영시간과 **실시간 가능면수 모두 실제 API 응답값**입니다(샘플/랜덤 데이터 없음).
+이 파일은 두 지자체의 실시간 주차장 API에서 받아온 데이터를 합친 것입니다.
 
-> 참고: 이 API는 공영/민영 구분 필드가 없어, 13곳 중 "NJ타워 주차장"은 이름상 민간 건물 부설 주차장으로 보입니다.
+- **대전광역시**(`apis.data.go.kr/6300000/pis/parkinglotIF`): 대전 전체 756개 주차장 중, 실시간 잔여면수(`resQty`)가 실제 의미 있는 값으로 제공되는 **13곳**만 선별했습니다. 나머지는 (1) 기본 정보만 있고 실시간 값이 없거나(`"NONE"`, 740곳) (2) 실시간 필드는 있지만 총면수·잔여면수가 둘 다 0으로 내려와 신뢰할 수 없는 경우(3곳)라 제외했습니다. 요금 정보 있음. 공영/민영 구분 필드가 없어 "NJ타워 주차장"은 이름상 민간 건물 부설 주차장으로 보입니다.
+- **강원특별자치도 강릉시**(`apis.data.go.kr/4201000/GNitsTrafficInfoService_1.0`): 강릉시 전체 **13곳 모두 실시간** 제공됩니다 (`getParkInfo`+`getParkRltm`, 공통 식별자 `prkId`로 매칭). 전부 `prkType: 공영`. 다만 이 API는 요금 정보 필드 자체가 없어 `fee` 값이 "요금 정보 없음"으로 표시됩니다.
+
+이름/주소/좌표/총면수/운영시간과 **실시간 가능면수 모두 실제 API 응답값**입니다(샘플/랜덤 데이터 없음).
 
 ```ts
 interface ParkingLot {
   id: string;
   name: string;
-  district: string; // 대전 자치구명 (예: "서구") — 다른 시/도 확장을 고려해 고정 목록 대신 문자열
+  district: string; // 자치구/시명 (예: "서구", "강릉시") — 다른 시/도 확장을 고려해 고정 목록 대신 문자열
   address: string;
   lat: number;
   lng: number;
@@ -172,12 +175,12 @@ interface ParkingLot {
 
 - **즐겨찾기 CRUD**: `lib/supabase/favorites.ts`(`listFavorites`/`addFavorite`/`removeFavorite`) ↔ `hooks/useFavorites.ts` — Bottom Sheet의 즐겨찾기 버튼과 실시간으로 연결되어 있으며, 낙관적 업데이트 후 실패 시 자동 롤백 + 에러 토스트를 표시합니다.
 - **길찾기 로그**: `lib/supabase/navigationEvents.ts`(`logNavigationEvent`) — Bottom Sheet의 길찾기 버튼 클릭 시 카카오맵 새 탭을 먼저 열고(팝업 차단 방지), 이어서 비동기로 `navigation_events` 에 기록합니다. 실패해도 사용자 흐름을 막지 않습니다.
-- **초기 데이터 적재**: `database/seed.sql` 이 `data/parking_lots.json` 의 13개 주차장을 `parking_lots`/`parking_status` 에 upsert 합니다 (즐겨찾기·길찾기 로그의 외래키 무결성을 위해 선행되어야 합니다).
+- **초기 데이터 적재**: `database/seed.sql` 이 `data/parking_lots.json` 의 26개 주차장(대전 13 + 강릉 13)을 `parking_lots`/`parking_status` 에 upsert 합니다 (즐겨찾기·길찾기 로그의 외래키 무결성을 위해 선행되어야 합니다).
 - **실시간 조회**: `lib/supabase/parkingLots.ts`(`fetchParkingLotsFromSupabase`)가 `parking_lots` + `parking_status` 를 조인해 `ParkingLot[]` 를 반환하며, `lib/parking/parkingRepository.ts` 가 이 함수를 호출합니다. 즉 지도 렌더링은 정적 JSON이 아니라 **Supabase에서 실시간으로 조회**합니다.
 
 ### 실시간 자동 갱신 (크론)
 
-- `app/api/cron/refresh-parking-status/route.ts` 가 `lib/regions/` 에 등록된 지역 어댑터(현재 대전 1곳)를 순회해 각 지역 API를 호출하고, 결과를 `parking_status` 테이블에 upsert 합니다.
+- `app/api/cron/refresh-parking-status/route.ts` 가 `lib/regions/` 에 등록된 지역 어댑터(현재 대전·강릉 2곳)를 순회해 각 지역 API를 호출하고, 결과를 `parking_status` 테이블에 upsert 합니다.
 - `vercel.json` 의 `crons` 설정으로 Vercel이 이 엔드포인트를 주기 호출합니다 (기본 10분 간격). **Vercel 무료(Hobby) 플랜은 Cron Job 실행 빈도가 하루 1회로 제한됩니다** — 더 자주 갱신하려면 Pro 플랜이 필요합니다. Hobby 플랜이라면 하루 1번만 갱신되는 게 정상입니다.
 - 이 라우트는 서비스 역할 키 없이 기존 Publishable Key로 직접 `parking_status` 에 씁니다. 이를 위해 `database/schema.sql` 에 `parking_status_public_insert`/`parking_status_public_update` 정책을 추가했습니다 — **이미 schema.sql을 실행하셨다면 아래 두 정책 구문만 Supabase SQL Editor에서 추가로 실행**해주세요.
 
@@ -194,7 +197,7 @@ create policy "parking_status_public_update" on public.parking_status
 
 ## 8. 향후 확장 계획
 
-- **다른 지역 실시간 API 연동**: 국가 통합 API(한국교통안전공단 `B553881`)는 위치정보 API와 실시간 API의 식별번호 체계가 서로 달라 직접 매칭이 안 되고, 현재는 서비스 자체도 502 오류로 응답하지 않습니다. 대신 **지자체별로 개별 제공하는 API**(예: 대전광역시 `6300000/pis/parkinglotIF`)는 위치정보와 실시간 잔여면수가 하나의 응답에 함께 들어있어 매칭 문제가 없습니다. 다른 시/도도 data.go.kr에서 지자체명으로 검색해 유사한 API를 찾아 `lib/regions/`에 어댑터로 추가하는 방식으로 확장합니다. (강원특별자치도 강릉시 `4201000/GNitsTrafficInfoService_1.0` 도 확인 중 — 승인 직후 전파 지연으로 재시도 필요)
+- **다른 지역 실시간 API 연동**: 국가 통합 API(한국교통안전공단 `B553881`)는 위치정보 API와 실시간 API의 식별번호 체계가 서로 달라 직접 매칭이 안 되고, 현재는 서비스 자체도 502 오류로 응답하지 않습니다. 대신 **지자체별로 개별 제공하는 API**는 위치정보와 실시간 잔여면수가 하나의 응답에 함께 들어있거나(대전 `6300000/pis`), 최소한 공통 식별자로 깔끔하게 매칭됩니다(강릉 `4201000/GNitsTrafficInfoService_1.0` 의 `prkId`). 다른 시/도도 data.go.kr에서 지자체명으로 검색해 유사한 API를 찾아 `lib/regions/`에 어댑터로 추가하는 방식으로 확장합니다.
 - **지역별 실시간 비율 편차 고려**: 대전은 전체 756곳 중 13곳(약 1.7%)만 의미 있는 실시간 값이 제공되어, 이번 버전은 그 13곳만 반영했습니다. 지역을 추가할 때마다 전체 중 실시간 제공 비율을 먼저 확인하고, 기본 정보만 있는(또는 값이 비어있는) 나머지를 포함할지 여부를 판단해야 합니다.
 - **다중 지역 확장 시 성능**: 앱은 Supabase에서 `parking_lots`/`parking_status` 를 조회해 렌더링하므로, 지역을 몇 개를 추가하든 프런트엔드 구조 자체는 그대로입니다. 다만 전국 약 18,530곳처럼 규모가 커지면 모든 마커를 한 번에 DOM으로 렌더링하기 어려우므로, 이미 구현된 `lib/kakao/clustering.ts` 격자 클러스터링(줌 레벨에 따라 숫자 묶음 ↔ 개별 마커 전환, "이 지역 검색" 클릭 시에만 갱신)을 계속 활용합니다.
 - **서비스 역할 키로 전환**: 지금은 MVP 단계라 크론이 Publishable Key + 열린 RLS로 `parking_status` 에 씁니다. 정식 서비스 전환 시에는 Supabase 서비스 역할 키를 Vercel 환경변수로 관리하고 크론 라우트에서만 사용하도록 바꾼 뒤, `parking_status_public_insert`/`_update` anon 정책은 제거하는 것을 권장합니다.
