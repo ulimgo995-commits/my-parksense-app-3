@@ -29,6 +29,8 @@ export interface KakaoMapHandle {
   panByPixels: (dx: number, dy: number) => void;
   /** 현재 지도 화면(뷰포트) 안에 있는 주차장 id 목록을 반환합니다 ("이 지역 검색" 기능용). */
   getVisibleLotIds: () => string[];
+  /** "이 지역 검색" 버튼 클릭 시 현재 화면 기준으로 마커/클러스터를 다시 계산합니다. */
+  refreshVisibleArea: () => void;
   /** 지도 컨테이너 크기가 바뀐 뒤(탭 전환 등) 강제로 다시 계산합니다. */
   relayout: () => void;
 }
@@ -38,8 +40,12 @@ interface KakaoMapProps {
   selectedLotId: string | null;
   userLocation: LatLng | null;
   onSelectLot: (lot: ParkingLot) => void;
-  /** 사용자가 직접 지도를 드래그했을 때 호출됩니다 (프로그래밍적 panTo와 구분하기 위함). */
-  onUserDrag?: () => void;
+  /**
+   * 사용자가 직접 지도를 드래그하거나 확대/축소했을 때 호출됩니다
+   * (panTo 등 프로그래밍적으로 지도를 움직인 경우는 제외).
+   * "이 지역 검색" 버튼을 띄우는 용도로 사용합니다.
+   */
+  onViewportChange?: () => void;
 }
 
 interface MarkerEntry {
@@ -61,7 +67,7 @@ interface ClusterEntry {
  * (Kakao Maps SDK 자체가 명령형 API이기 때문에 선언형으로 감싸는 것보다 훨씬 안정적입니다.)
  */
 export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap(
-  { parkingLots, selectedLotId, userLocation, onSelectLot, onUserDrag },
+  { parkingLots, selectedLotId, userLocation, onSelectLot, onViewportChange },
   ref
 ) {
   const { status, error } = useKakaoLoader();
@@ -73,17 +79,21 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const routeLineRef = useRef<kakao.maps.Polyline | null>(null);
   const routeEtaOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const onSelectLotRef = useRef(onSelectLot);
-  const onUserDragRef = useRef(onUserDrag);
+  const onViewportChangeRef = useRef(onViewportChange);
   const parkingLotsRef = useRef(parkingLots);
   const selectedLotIdRef = useRef(selectedLotId);
+  // 'none' | 'autoSync' — 프로그래밍적으로 지도를 움직인 직후인지, 그리고 그 뒤에
+  // 자동으로 마커를 다시 계산해야 하는지를 나타냅니다. 사용자가 직접 드래그/줌 했을 때는
+  // 항상 'none' 상태라서, 아래 dragend/zoom_changed 리스너가 "이 지역 검색" 버튼을 띄웁니다.
+  const pendingActionRef = useRef<'none' | 'autoSync'>('none');
 
   useEffect(() => {
     onSelectLotRef.current = onSelectLot;
   }, [onSelectLot]);
 
   useEffect(() => {
-    onUserDragRef.current = onUserDrag;
-  }, [onUserDrag]);
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   useEffect(() => {
     parkingLotsRef.current = parkingLots;
@@ -95,9 +105,10 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
 
   /**
    * 현재 지도 뷰포트 + 줌 레벨을 기준으로 마커/클러스터를 다시 계산해 동기화합니다.
-   * (1) 지도 idle 이벤트(팬/줌 종료), (2) 주차장 목록 변경, (3) 선택 상태 변경 시 호출됩니다.
+   * "이 지역 검색" 버튼 클릭, 검색/목록에서 주차장 선택, 필터 변경, 최초 로드 시에만 호출되며,
+   * 사용자가 직접 드래그/줌만 했을 때는 호출되지 않습니다 (버튼을 눌러야 갱신).
    * 기존에 이미 표시 중인 마커/클러스터는 재사용하고 변경분만 추가/제거해서,
-   * 단순히 화면을 이동만 했을 때 마커 등장 애니메이션이 다시 재생되는 것을 방지합니다.
+   * 마커 등장 애니메이션이 불필요하게 다시 재생되는 것을 방지합니다.
    */
   const syncMarkers = useCallback(() => {
     const map = mapRef.current;
@@ -109,7 +120,15 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       bounds.contain(new window.kakao.maps.LatLng(lot.lat, lot.lng))
     );
 
-    const keepSingle = selectedLotIdRef.current ? new Set([selectedLotIdRef.current]) : new Set<string>();
+    // 선택된 주차장은 (팬 애니메이션이 아직 끝나지 않아) 현재 화면 범위 밖으로 계산되더라도
+    // 항상 표시되도록 안전망을 둡니다.
+    const selectedId = selectedLotIdRef.current;
+    if (selectedId && !visibleLots.some((lot) => lot.id === selectedId)) {
+      const selectedLot = parkingLotsRef.current.find((lot) => lot.id === selectedId);
+      if (selectedLot) visibleLots.push(selectedLot);
+    }
+
+    const keepSingle = selectedId ? new Set([selectedId]) : new Set<string>();
     const { singles, clusters } = clusterLots(visibleLots, level, keepSingle);
 
     // --- 개별 마커 diff ---
@@ -162,6 +181,8 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         const targetMap = mapRef.current;
         if (!targetMap) return;
         const nextLevel = Math.max(1, targetMap.getLevel() - 2);
+        // 클러스터를 눌러서 확대하는 건 명시적인 요청이므로, 끝나면 자동으로 다시 계산합니다.
+        pendingActionRef.current = 'autoSync';
         targetMap.setLevel(nextLevel, { anchor: position, animate: true });
         targetMap.panTo(position);
       });
@@ -192,6 +213,9 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         // panTo는 애니메이션(비동기)이라, 먼저 setLevel부터 호출하면 "아직 이동 중인 옛 중심"을
         // 기준으로 확대되어 엉뚱한 곳이 확대되거나 목표 지점이 화면 가장자리로 밀려납니다.
         // anchor를 목표 좌표로 명시해 확대 기준점을 고정한 뒤, panTo로 정확히 중심을 맞춥니다.
+        // 프로그래밍적으로 이동하는 것이므로 "이 지역 검색" 버튼은 띄우지 않고, 이동이 끝나면
+        // 자동으로 마커를 다시 계산합니다.
+        pendingActionRef.current = 'autoSync';
         if (level !== undefined) {
           map.setLevel(level, { anchor: latlng, animate: true });
         }
@@ -208,12 +232,15 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
           .filter((lot) => bounds.contain(new window.kakao.maps.LatLng(lot.lat, lot.lng)))
           .map((lot) => lot.id);
       },
+      refreshVisibleArea: () => {
+        syncMarkers();
+      },
       relayout: () => {
         // 탭 전환 등으로 display:none 상태였다가 다시 보일 때, 지도 크기를 다시 계산하도록 합니다.
         mapRef.current?.relayout();
       },
     }),
-    []
+    [syncMarkers]
   );
 
   // 1) SDK 로드 완료 후 지도 최초 1회 생성
@@ -229,23 +256,36 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     const handleResize = () => map.relayout();
     window.addEventListener('resize', handleResize);
 
-    const handleDragEnd = () => onUserDragRef.current?.();
-    window.kakao.maps.event.addListener(map, 'dragend', handleDragEnd);
+    // 사용자가 "직접" 드래그하거나 확대/축소했을 때만 "이 지역 검색" 버튼을 띄웁니다.
+    // (panTo 등 프로그래밍적 이동 중에는 pendingActionRef 가 'none'이 아니므로 무시됩니다.)
+    const handleUserViewportChange = () => {
+      if (pendingActionRef.current !== 'none') return;
+      onViewportChangeRef.current?.();
+    };
+    window.kakao.maps.event.addListener(map, 'dragend', handleUserViewportChange);
+    window.kakao.maps.event.addListener(map, 'zoom_changed', handleUserViewportChange);
 
-    // 팬/줌이 끝날 때마다(idle) 현재 뷰포트 기준으로 마커/클러스터를 다시 계산합니다.
-    const handleIdle = () => syncMarkers();
+    // 프로그래밍적 이동(panTo, 클러스터 확대 등)이 끝났을 때만 자동으로 마커를 다시 계산합니다.
+    const handleIdle = () => {
+      const action = pendingActionRef.current;
+      pendingActionRef.current = 'none';
+      if (action === 'autoSync') syncMarkers();
+    };
     window.kakao.maps.event.addListener(map, 'idle', handleIdle);
+
+    // 최초 로드 시 기본 중심(이후 현재 위치를 알면 다시 이동) 기준으로 한 번 표시합니다.
     syncMarkers();
 
     return () => {
       window.removeEventListener('resize', handleResize);
-      window.kakao.maps.event.removeListener(map, 'dragend', handleDragEnd);
+      window.kakao.maps.event.removeListener(map, 'dragend', handleUserViewportChange);
+      window.kakao.maps.event.removeListener(map, 'zoom_changed', handleUserViewportChange);
       window.kakao.maps.event.removeListener(map, 'idle', handleIdle);
     };
   }, [status, syncMarkers]);
 
-  // 2) 주차장 목록/선택 상태가 바뀔 때도 마커/클러스터를 다시 계산합니다.
-  // (팬/줌에 의한 재계산은 위 'idle' 리스너가 담당합니다.)
+  // 2) 주차장 목록(필터 변경 등)이나 선택 상태가 바뀌면 즉시 마커/클러스터를 다시 계산합니다.
+  // (단순 드래그/줌만으로는 재계산되지 않으며, "이 지역 검색" 버튼을 눌러야 합니다.)
   useEffect(() => {
     if (status !== 'success' || !mapRef.current) return;
     syncMarkers();

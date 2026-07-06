@@ -141,6 +141,8 @@ export function HomeScreen() {
   const handleSearchThisArea = useCallback(() => {
     const visibleIds = mapRef.current?.getVisibleLotIds() ?? [];
     const visibleCount = visibleLots.filter((lot) => visibleIds.includes(lot.id)).length;
+    // 실제로 현재 화면 기준 마커/클러스터를 새로 그립니다 (드래그/줌만으로는 갱신되지 않음).
+    mapRef.current?.refreshVisibleArea();
     setShowSearchAreaButton(false);
     showToast(
       visibleCount > 0 ? `이 지역에 주차장 ${visibleCount}곳이 있어요` : '이 지역에는 표시할 주차장이 없어요'
@@ -161,7 +163,7 @@ export function HomeScreen() {
           selectedLotId={selectedLotId}
           userLocation={userLocation}
           onSelectLot={handleSelectLot}
-          onUserDrag={() => setShowSearchAreaButton(true)}
+          onViewportChange={() => setShowSearchAreaButton(true)}
         />
       </div>
 
