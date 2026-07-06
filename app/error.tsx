@@ -7,11 +7,11 @@ import { EmptyState } from '@/components/common/EmptyState';
 /** Next.js App Router 전역 에러 바운더리 (예기치 못한 렌더링 오류 대응) */
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
-    console.error('[ParkSense] Unhandled error:', error);
+    console.error('[ParkFlow] Unhandled error:', error);
   }, [error]);
 
   return (
-    <div className="flex h-dvh w-full items-center justify-center bg-white">
+    <div className="flex h-full w-full items-center justify-center bg-white">
       <EmptyState
         icon="😵"
         title="예기치 못한 오류가 발생했어요"

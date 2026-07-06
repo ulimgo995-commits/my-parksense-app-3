@@ -5,26 +5,36 @@ import type { KeyboardEvent } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { getDistanceInMeters } from '@/utils/distance';
 import { SearchResultItem } from './SearchResultItem';
-import type { LatLng, ParkingLot } from '@/types/parking';
+import { PlaceResultItem } from './PlaceResultItem';
+import type { LatLng, ParkingLot, PlaceResult } from '@/types/parking';
 
 interface SearchBarProps {
   parkingLots: ParkingLot[];
   userLocation: LatLng | null;
   onSelect: (lot: ParkingLot) => void;
+  /** 제공되면 주차장 이름 검색과 함께 실제 장소/주소(카카오 Places) 검색도 활성화됩니다. */
+  onSelectPlace?: (place: PlaceResult) => void;
+  placeholder?: string;
 }
+
+const MAX_LOT_RESULTS = 5;
+const MAX_PLACE_RESULTS = 5;
 
 /**
  * 상단 고정 검색창 + 자동완성 드롭다운.
- * 디자인 가이드 7. 검색(Search) 규격을 따릅니다: Rounded 검색창, Fade 애니메이션.
+ * 로컬 주차장 이름/주소 매칭에 더해, onSelectPlace가 주어지면 카카오 Places
+ * 키워드 검색(실제 장소/주소)도 함께 보여줍니다 (SDK는 이미 libraries=services로 로드됨).
  */
-export function SearchBar({ parkingLots, userLocation, onSelect }: SearchBarProps) {
+export function SearchBar({ parkingLots, userLocation, onSelect, onSelectPlace, placeholder }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [placeResults, setPlaceResults] = useState<PlaceResult[]>([]);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const latestQueryRef = useRef('');
   const debouncedQuery = useDebounce(query, 150);
 
-  const results = useMemo(() => {
+  const lotResults = useMemo(() => {
     const keyword = debouncedQuery.trim();
     if (!keyword) return [];
 
@@ -32,7 +42,7 @@ export function SearchBar({ parkingLots, userLocation, onSelect }: SearchBarProp
       (lot) => lot.name.includes(keyword) || lot.address.includes(keyword) || lot.district.includes(keyword)
     );
 
-    if (!userLocation) return matched.slice(0, 8);
+    if (!userLocation) return matched.slice(0, MAX_LOT_RESULTS);
 
     return [...matched]
       .sort(
@@ -40,12 +50,44 @@ export function SearchBar({ parkingLots, userLocation, onSelect }: SearchBarProp
           getDistanceInMeters(userLocation, { lat: a.lat, lng: a.lng }) -
           getDistanceInMeters(userLocation, { lat: b.lat, lng: b.lng })
       )
-      .slice(0, 8);
+      .slice(0, MAX_LOT_RESULTS);
   }, [debouncedQuery, parkingLots, userLocation]);
 
   useEffect(() => {
+    const keyword = debouncedQuery.trim();
+    latestQueryRef.current = keyword;
+
+    if (!onSelectPlace || !keyword || typeof window === 'undefined' || !window.kakao?.maps?.services) {
+      setPlaceResults([]);
+      return;
+    }
+
+    const places = new window.kakao.maps.services.Places();
+    places.keywordSearch(keyword, (result, status) => {
+      // 응답이 도착했을 때 검색어가 이미 바뀌었다면(늦게 도착한 응답) 무시합니다.
+      if (latestQueryRef.current !== keyword) return;
+      if (status !== window.kakao.maps.services.Status.OK) {
+        setPlaceResults([]);
+        return;
+      }
+      setPlaceResults(
+        result.slice(0, MAX_PLACE_RESULTS).map((item) => ({
+          id: item.id,
+          name: item.place_name,
+          address: item.road_address_name || item.address_name,
+          lat: Number(item.y),
+          lng: Number(item.x),
+        }))
+      );
+    });
+  }, [debouncedQuery, onSelectPlace]);
+
+  const visiblePlaceResults = onSelectPlace ? placeResults : [];
+  const totalResultCount = lotResults.length + visiblePlaceResults.length;
+
+  useEffect(() => {
     setHighlightedIndex(0);
-  }, [results]);
+  }, [totalResultCount]);
 
   useEffect(() => {
     function handleOutsideClick(event: MouseEvent) {
@@ -57,31 +99,42 @@ export function SearchBar({ parkingLots, userLocation, onSelect }: SearchBarProp
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
-  const handleSelect = (lot: ParkingLot) => {
+  const handleSelectLot = (lot: ParkingLot) => {
     setQuery(lot.name);
     setIsOpen(false);
     onSelect(lot);
   };
 
+  const handleSelectPlace = (place: PlaceResult) => {
+    setQuery(place.name);
+    setIsOpen(false);
+    onSelectPlace?.(place);
+  };
+
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (!isOpen || results.length === 0) return;
+    if (!isOpen || totalResultCount === 0) return;
 
     if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setHighlightedIndex((prev) => (prev + 1) % results.length);
+      setHighlightedIndex((prev) => (prev + 1) % totalResultCount);
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setHighlightedIndex((prev) => (prev - 1 + results.length) % results.length);
+      setHighlightedIndex((prev) => (prev - 1 + totalResultCount) % totalResultCount);
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      const target = results[highlightedIndex];
-      if (target) handleSelect(target);
+      if (highlightedIndex < lotResults.length) {
+        const target = lotResults[highlightedIndex];
+        if (target) handleSelectLot(target);
+      } else {
+        const target = visiblePlaceResults[highlightedIndex - lotResults.length];
+        if (target) handleSelectPlace(target);
+      }
     } else if (event.key === 'Escape') {
       setIsOpen(false);
     }
   };
 
-  const showEmptyMessage = isOpen && debouncedQuery.trim().length > 0 && results.length === 0;
+  const showEmptyMessage = isOpen && debouncedQuery.trim().length > 0 && totalResultCount === 0;
 
   return (
     <div ref={wrapperRef} className="pointer-events-auto relative w-full">
@@ -98,8 +151,8 @@ export function SearchBar({ parkingLots, userLocation, onSelect }: SearchBarProp
           }}
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
-          placeholder="주차장 이름을 검색하세요"
-          aria-label="주차장 검색"
+          placeholder={placeholder ?? (onSelectPlace ? '주차장, 장소, 주소를 검색하세요' : '주차장 이름을 검색하세요')}
+          aria-label="주차장/장소 검색"
           className="h-full min-w-0 flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-secondary focus:outline-none"
         />
         {query && (
@@ -119,17 +172,33 @@ export function SearchBar({ parkingLots, userLocation, onSelect }: SearchBarProp
         )}
       </div>
 
-      {isOpen && (results.length > 0 || showEmptyMessage) && (
-        <div className="animate-fade-in-up absolute left-0 right-0 top-[calc(100%+8px)] max-h-80 overflow-y-auto rounded-2xl bg-white shadow-floating">
-          {results.length > 0 ? (
+      {isOpen && (totalResultCount > 0 || showEmptyMessage) && (
+        <div className="animate-fade-in-up absolute left-0 right-0 top-[calc(100%+8px)] max-h-96 overflow-y-auto rounded-2xl bg-white shadow-floating">
+          {totalResultCount > 0 ? (
             <ul className="divide-y divide-divider py-1">
-              {results.map((lot, index) => (
+              {lotResults.length > 0 && onSelectPlace && (
+                <li className="px-4 pb-1 pt-2 text-[11px] font-semibold text-text-secondary">주차장</li>
+              )}
+              {lotResults.map((lot, index) => (
                 <SearchResultItem
-                  key={lot.id}
+                  key={`lot-${lot.id}`}
                   lot={lot}
-                  distanceMeters={userLocation ? getDistanceInMeters(userLocation, { lat: lot.lat, lng: lot.lng }) : undefined}
+                  distanceMeters={
+                    userLocation ? getDistanceInMeters(userLocation, { lat: lot.lat, lng: lot.lng }) : undefined
+                  }
                   isHighlighted={index === highlightedIndex}
-                  onSelect={handleSelect}
+                  onSelect={handleSelectLot}
+                />
+              ))}
+              {visiblePlaceResults.length > 0 && (
+                <li className="px-4 pb-1 pt-2 text-[11px] font-semibold text-text-secondary">장소</li>
+              )}
+              {visiblePlaceResults.map((place, index) => (
+                <PlaceResultItem
+                  key={`place-${place.id}`}
+                  place={place}
+                  isHighlighted={lotResults.length + index === highlightedIndex}
+                  onSelect={handleSelectPlace}
                 />
               ))}
             </ul>

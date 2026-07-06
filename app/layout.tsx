@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import { ToastProvider } from '@/components/common/ToastProvider';
+import { TopNavBar } from '@/components/navigation/TopNavBar';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ParkSense | 목적지 기반 주차장 혼잡도 안내',
-  description: '대전 주차장의 실시간 혼잡도를 지도에서 바로 확인하고 가장 적합한 주차장을 찾아보세요.',
+  title: 'ParkFlow | 목적지 기반 주차장 혼잡도 안내',
+  description: '지원 지역 주차장의 실시간 혼잡도를 지도에서 바로 확인하고 가장 적합한 주차장을 찾아보세요.',
 };
 
 export const viewport: Viewport = {
@@ -26,7 +27,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans antialiased">
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>
+          <div className="flex h-dvh flex-col overflow-hidden">
+            <TopNavBar />
+            <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+          </div>
+        </ToastProvider>
       </body>
     </html>
   );

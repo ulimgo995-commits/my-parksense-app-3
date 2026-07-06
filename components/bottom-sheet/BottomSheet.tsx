@@ -26,7 +26,7 @@ const COLLAPSED_TRANSLATE_VH = SHEET_HEIGHT_VH - COLLAPSED_VISIBLE_VH;
  * - Mobile(<md): 드래그 가능한 Bottom Sheet (Collapsed 42% / Expanded 88%)
  * - Desktop(>=md): 지도 위 좌측 하단에 떠 있는 고정 패널 (디자인 가이드 12. 반응형)
  *
- * 즐겨찾기 상태는 상위(HomeScreen)에서 단일 useFavorites 인스턴스로 관리하여
+ * 즐겨찾기 상태는 상위 페이지 컴포넌트에서 단일 useFavorites 인스턴스로 관리하여
  * Bottom Sheet / 내 주변 / 즐겨찾기 화면 간 상태가 항상 일치하도록 합니다.
  */
 export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite }: BottomSheetProps) {

@@ -64,3 +64,12 @@ export interface CongestionMeta {
 
 /** 데이터 로딩 상태를 표현하는 공용 유니언 (훅에서 재사용) */
 export type AsyncStatus = 'idle' | 'loading' | 'success' | 'error';
+
+/** 카카오 Places 키워드 검색 결과 (주차장이 아닌 일반 장소/주소) */
+export interface PlaceResult {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
