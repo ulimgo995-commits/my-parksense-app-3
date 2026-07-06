@@ -5,9 +5,9 @@ import rawParkingLots from '@/data/parking_lots.json';
  * 주차장 데이터 접근 계층.
  *
  * MVP 단계에서는 `/data/parking_lots.json` 단일 파일만 읽습니다 (requirements.md 10).
- * 실제 서비스로 전환할 때는 이 함수의 구현부만 공공데이터포털 / 서울 열린데이터광장의
- * 실시간 주차장 API 호출로 교체하면 되며, 반환 타입(ParkingLot[])과 호출부(useParkingLots)는
- * 변경할 필요가 없도록 설계되어 있습니다.
+ * 실제 서비스로 전환할 때는 이 함수의 구현부만 공공데이터포털(지자체별 실시간 주차장 API)
+ * 호출로 교체하면 되며, 반환 타입(ParkingLot[])과 호출부(useParkingLots)는 변경할 필요가
+ * 없도록 설계되어 있습니다.
  *
  * Supabase 백엔드(database/schema.sql)는 이미 준비되어 있으며, 동일한 반환 타입을 갖는
  * lib/supabase/parkingLots.ts 의 fetchParkingLotsFromSupabase() 로 바로 교체할 수 있습니다.

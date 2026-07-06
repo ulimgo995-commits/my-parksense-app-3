@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'ParkSense | 목적지 기반 주차장 혼잡도 안내',
-  description: '서울 공영주차장의 실시간 혼잡도를 지도에서 바로 확인하고 가장 적합한 주차장을 찾아보세요.',
+  description: '대전 주차장의 실시간 혼잡도를 지도에서 바로 확인하고 가장 적합한 주차장을 찾아보세요.',
 };
 
 export const viewport: Viewport = {

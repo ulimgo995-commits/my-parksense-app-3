@@ -25,7 +25,7 @@ create extension if not exists "pgcrypto";
 create table if not exists public.parking_lots (
   id text primary key,
   name text not null,
-  -- 서울 전역(추후 전국)의 실제 자치구/시군구명이 들어오므로 고정 목록 체크 제약은 두지 않습니다.
+  -- 지역이 늘어날 때마다(현재 대전, 추후 다른 시/도) 다른 자치구명이 들어오므로 고정 목록 체크 제약은 두지 않습니다.
   district text not null,
   address text not null,
   latitude double precision not null,
@@ -36,7 +36,7 @@ create table if not exists public.parking_lots (
   created_at timestamptz not null default now()
 );
 
-comment on table public.parking_lots is '서울 공영주차장 기본 정보 (id는 data/parking_lots.json 의 slug와 동일)';
+comment on table public.parking_lots is '대전광역시 실시간 주차장 기본 정보 (id는 data/parking_lots.json 의 slug와 동일)';
 
 -- ----------------------------------------------------------------------------
 -- 2. parking_status: 현재(현재는 샘플) 혼잡도 및 가능 주차면수

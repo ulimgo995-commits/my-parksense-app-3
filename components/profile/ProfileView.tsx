@@ -18,7 +18,7 @@ export function ProfileView() {
 
         <div className="mt-8 space-y-3 rounded-xl bg-gray-50 p-4 text-sm text-text-secondary">
           <p>
-            ParkSense는 서울 공영주차장의 혼잡도를 지도에서 바로 확인할 수 있도록 도와주는 목적지 기반 주차장 안내
+            ParkSense는 대전 주차장의 혼잡도를 지도에서 바로 확인할 수 있도록 도와주는 목적지 기반 주차장 안내
             서비스입니다.
           </p>
           <p>현재는 로그인 없이 누구나 즐겨찾기와 길찾기 기능을 사용할 수 있는 MVP 버전입니다.</p>

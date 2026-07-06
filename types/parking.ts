@@ -8,7 +8,8 @@
 
 /**
  * 자치구/시군구명.
- * 서울 전역(추후 전국) 실제 공공데이터를 사용하므로 고정된 목록 대신 문자열로 둡니다.
+ * 지역이 늘어날 때마다(현재 대전, 추후 다른 시/도) 실제 공공데이터를 사용하므로
+ * 고정된 목록 대신 문자열로 둡니다.
  */
 export type District = string;
 
@@ -38,7 +39,7 @@ export interface ParkingLot {
   fee: string;
   /** 총 주차면수 */
   totalSpaces: number;
-  /** 현재 가능 면수 (샘플 데이터, 향후 실시간 API 연동 대상) */
+  /** 현재 가능 면수 (대전광역시 실시간 주차장 API 값) */
   availableSpaces: number;
   /** 마지막 업데이트 시각 (ISO 8601) */
   updatedAt: string;

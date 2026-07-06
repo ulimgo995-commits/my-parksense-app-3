@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { KakaoMap, SEOUL_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
+import { KakaoMap, DAEJEON_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
 import { CurrentLocationButton } from '@/components/map/CurrentLocationButton';
 import { CongestionLegend } from '@/components/map/CongestionLegend';
 import { SearchAreaButton } from '@/components/map/SearchAreaButton';
@@ -176,7 +176,7 @@ export function HomeScreen() {
               ) : (
                 <SearchBar
                   parkingLots={visibleLots}
-                  userLocation={userLocation ?? SEOUL_CITY_HALL}
+                  userLocation={userLocation ?? DAEJEON_CITY_HALL}
                   onSelect={handleSelectLot}
                 />
               )}

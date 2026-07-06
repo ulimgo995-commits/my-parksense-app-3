@@ -19,8 +19,8 @@ import type { LatLng, ParkingLot } from '@/types/parking';
 import { MapLoadingSkeleton } from './MapLoadingSkeleton';
 import { MapErrorState } from './MapErrorState';
 
-/** 서울시청 - 위치 권한이 없거나 실패했을 때의 기본 지도 중심 */
-export const SEOUL_CITY_HALL: LatLng = { lat: 37.5665, lng: 126.978 };
+/** 대전광역시청 - 위치 권한이 없거나 실패했을 때의 기본 지도 중심 */
+export const DAEJEON_CITY_HALL: LatLng = { lat: 36.3504, lng: 127.3845 };
 const DEFAULT_LEVEL = 6;
 
 export interface KakaoMapHandle {
@@ -248,7 +248,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     if (status !== 'success' || !containerRef.current || mapRef.current) return;
 
     const map = new window.kakao.maps.Map(containerRef.current, {
-      center: new window.kakao.maps.LatLng(SEOUL_CITY_HALL.lat, SEOUL_CITY_HALL.lng),
+      center: new window.kakao.maps.LatLng(DAEJEON_CITY_HALL.lat, DAEJEON_CITY_HALL.lng),
       level: DEFAULT_LEVEL,
     });
     mapRef.current = map;

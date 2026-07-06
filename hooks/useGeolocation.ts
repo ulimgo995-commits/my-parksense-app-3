@@ -12,7 +12,7 @@ interface UseGeolocationState {
 }
 
 interface UseGeolocationResult extends UseGeolocationState {
-  /** 서울시청 좌표 등 기본값으로 폴백하지 않고, 순수하게 위치 요청만 트리거합니다. */
+  /** 기본값(대전광역시청 좌표 등)으로 폴백하지 않고, 순수하게 위치 요청만 트리거합니다. */
   requestLocation: () => void;
 }
 

@@ -8,7 +8,7 @@ interface LocationPermissionBannerProps {
 }
 
 const MESSAGE_BY_REASON: Record<GeolocationErrorReason, string> = {
-  'permission-denied': '위치 권한이 거부되어 서울시청을 기준으로 지도를 표시하고 있어요. 브라우저 설정에서 위치 권한을 허용해주세요.',
+  'permission-denied': '위치 권한이 거부되어 대전광역시청을 기준으로 지도를 표시하고 있어요. 브라우저 설정에서 위치 권한을 허용해주세요.',
   'position-unavailable': '현재 위치를 확인할 수 없어요. 잠시 후 다시 시도해주세요.',
   timeout: '위치 확인이 지연되고 있어요. 다시 시도해주세요.',
   unsupported: '이 브라우저는 위치 확인 기능을 지원하지 않아요.',
