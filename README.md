@@ -181,7 +181,7 @@ interface ParkingLot {
 ### 실시간 자동 갱신 (크론)
 
 - `app/api/cron/refresh-parking-status/route.ts` 가 `lib/regions/` 에 등록된 지역 어댑터(현재 대전·강릉 2곳)를 순회해 각 지역 API를 호출하고, 결과를 `parking_status` 테이블에 upsert 합니다.
-- `vercel.json` 의 `crons` 설정으로 Vercel이 이 엔드포인트를 주기 호출합니다 (기본 10분 간격). **Vercel 무료(Hobby) 플랜은 Cron Job 실행 빈도가 하루 1회로 제한됩니다** — 더 자주 갱신하려면 Pro 플랜이 필요합니다. Hobby 플랜이라면 하루 1번만 갱신되는 게 정상입니다.
+- `vercel.json` 의 `crons` 설정으로 Vercel이 이 엔드포인트를 주기 호출합니다 (하루 1번, `0 0 * * *`). **Vercel 무료(Hobby) 플랜은 하루 1회보다 잦은 크론 스케줄을 아예 허용하지 않습니다** — 배포 단계에서 검증에 걸려 **배포 자체가 실패**합니다(단순히 "덜 자주 도는" 게 아니라 빌드가 깨집니다). 더 자주 갱신하려면 Pro 플랜으로 업그레이드한 뒤 스케줄을 촘촘하게(예: `*/10 * * * *`) 바꿔야 합니다.
 - 이 라우트는 서비스 역할 키 없이 기존 Publishable Key로 직접 `parking_status` 에 씁니다. 이를 위해 `database/schema.sql` 에 `parking_status_public_insert`/`parking_status_public_update` 정책을 추가했습니다 — **이미 schema.sql을 실행하셨다면 아래 두 정책 구문만 Supabase SQL Editor에서 추가로 실행**해주세요.
 
 ```sql
