@@ -46,7 +46,7 @@ export function TopNavBar() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:h-16 md:px-6">
         <Link href="/" className="shrink-0" onClick={() => setIsMenuOpen(false)}>
           <span className="hidden md:inline-flex">
-            <Logo markSize={30} wordmarkClassName="text-lg" />
+            <Logo height={28} />
           </span>
           <span className="inline-flex md:hidden">
             <LogoMark size={28} />
