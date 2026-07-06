@@ -84,10 +84,14 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       panTo: (position, level) => {
         const map = mapRef.current;
         if (!map || !window.kakao) return;
-        map.panTo(new window.kakao.maps.LatLng(position.lat, position.lng));
+        const latlng = new window.kakao.maps.LatLng(position.lat, position.lng);
+        // panTo는 애니메이션(비동기)이라, 먼저 setLevel부터 호출하면 "아직 이동 중인 옛 중심"을
+        // 기준으로 확대되어 엉뚱한 곳이 확대되거나 목표 지점이 화면 가장자리로 밀려납니다.
+        // anchor를 목표 좌표로 명시해 확대 기준점을 고정한 뒤, panTo로 정확히 중심을 맞춥니다.
         if (level !== undefined) {
-          map.setLevel(level, { animate: true });
+          map.setLevel(level, { anchor: latlng, animate: true });
         }
+        map.panTo(latlng);
       },
       panByPixels: (dx, dy) => {
         mapRef.current?.panBy(dx, dy);
