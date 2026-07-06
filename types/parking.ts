@@ -6,8 +6,11 @@
  * lib/parking/parkingRepository.ts 의 fetchParkingLots 구현부만 API 호출로 교체하면 됩니다.
  */
 
-/** 서울 4개 자치구 (MVP 대상 지역) */
-export type District = '강남구' | '종로구' | '중구' | '성동구';
+/**
+ * 자치구/시군구명.
+ * 서울 전역(추후 전국) 실제 공공데이터를 사용하므로 고정된 목록 대신 문자열로 둡니다.
+ */
+export type District = string;
 
 /** 혼잡도 단계 */
 export type CongestionLevel = 'available' | 'moderate' | 'congested' | 'full';

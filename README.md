@@ -6,7 +6,7 @@
 
 현재 대부분의 지도 서비스는 주차장의 위치는 제공하지만, 지금 얼마나 여유가 있는지는 직관적으로 확인하기 어렵습니다. ParkSense는 지도 위 마커 색상만으로 혼잡도(여유/보통/혼잡/만차)를 즉시 파악할 수 있게 하여, 운전자가 주차장을 찾아 헤매는 시간을 줄여줍니다.
 
-이번 버전은 서울 4개 자치구(강남구, 종로구, 중구, 성동구)의 공영주차장 약 26개를 대상으로 하는 MVP이며, 향후 실시간 공공데이터 API 및 전국 단위 확장을 고려하여 설계되었습니다.
+이번 버전은 **서울 전역 22개 자치구의 실제 공영주차장 513곳**(국토교통부 전국주차장정보표준데이터 기반)을 대상으로 하며, 향후 실시간 공공데이터 API 연동 및 전국 단위 확장을 고려하여 설계되었습니다.
 
 ## 2. 기술 스택
 
@@ -50,7 +50,7 @@ NEXT_PUBLIC_KAKAO_MAP_API_KEY=발급받은_JavaScript_키
 
 1. [Supabase SQL Editor](https://supabase.com/dashboard/project/ucuqphqplzjywegngmsm/sql/new) 접속
 2. `database/schema.sql` 내용을 붙여넣고 실행 (테이블 4개 + 외래키 + RLS 정책 생성)
-3. `database/seed.sql` 내용을 붙여넣고 실행 (`data/parking_lots.json` 의 26개 주차장을 `parking_lots`/`parking_status` 테이블에 적재)
+3. `database/seed.sql` 내용을 붙여넣고 실행 (`data/parking_lots.json` 의 513개 주차장을 `parking_lots`/`parking_status` 테이블에 적재)
 
 두 스크립트 모두 `on conflict ... do update` 로 작성되어 있어 여러 번 실행해도 안전합니다.
 
@@ -125,11 +125,13 @@ parksense/
 
 `data/parking_lots.json` 하나만 애플리케이션의 데이터 소스로 사용합니다 (하드코딩 금지).
 
+이 파일은 **국토교통부 "전국주차장정보표준데이터"** Open API(`tn_pubr_prkplce_info_api`)에서 서울(`rdnmadr`가 "서울특별시"로 시작)이면서 좌표·총면수가 유효한 레코드만 추출·정제해 생성했습니다. 이름/주소/좌표/총면수/요금/운영시간/유형(노외·노상)은 실제 데이터이며, **실시간 가능면수·혼잡도 이력만 샘플(결정적 랜덤)로 채웠습니다** — 정부의 실시간 가능면수 API(한국교통안전공단, 관리번호 기반)는 위치 정보가 없고 식별번호 체계도 달라 현재는 직접 매칭이 불가능합니다.
+
 ```ts
 interface ParkingLot {
   id: string;
   name: string;
-  district: '강남구' | '종로구' | '중구' | '성동구';
+  district: string; // 서울 자치구명 (예: "강남구") — 전국 확장을 고려해 고정 목록 대신 문자열
   address: string;
   lat: number;
   lng: number;
@@ -168,13 +170,13 @@ interface ParkingLot {
 
 - **즐겨찾기 CRUD**: `lib/supabase/favorites.ts`(`listFavorites`/`addFavorite`/`removeFavorite`) ↔ `hooks/useFavorites.ts` — Bottom Sheet의 즐겨찾기 버튼과 실시간으로 연결되어 있으며, 낙관적 업데이트 후 실패 시 자동 롤백 + 에러 토스트를 표시합니다.
 - **길찾기 로그**: `lib/supabase/navigationEvents.ts`(`logNavigationEvent`) — Bottom Sheet의 길찾기 버튼 클릭 시 카카오맵 새 탭을 먼저 열고(팝업 차단 방지), 이어서 비동기로 `navigation_events` 에 기록합니다. 실패해도 사용자 흐름을 막지 않습니다.
-- **초기 데이터 적재**: `database/seed.sql` 이 `data/parking_lots.json` 의 26개 주차장을 `parking_lots`/`parking_status` 에 upsert 합니다 (즐겨찾기·길찾기 로그의 외래키 무결성을 위해 선행되어야 합니다).
+- **초기 데이터 적재**: `database/seed.sql` 이 `data/parking_lots.json` 의 513개 주차장을 `parking_lots`/`parking_status` 에 upsert 합니다 (즐겨찾기·길찾기 로그의 외래키 무결성을 위해 선행되어야 합니다).
 - **향후 실시간 조회 대비**: `lib/supabase/parkingLots.ts`(`fetchParkingLotsFromSupabase`)가 `parking_lots` + `parking_status` 를 조인해 앱이 쓰는 것과 동일한 `ParkingLot[]` 타입을 반환하도록 미리 구현되어 있습니다. 지도 렌더링은 여전히 requirements.md 10 규칙에 따라 `data/parking_lots.json` 만 사용하지만(`lib/parking/parkingRepository.ts`), 실시간 전환 시 이 함수로 구현부만 바꾸면 됩니다.
 
 ## 8. 향후 확장 계획
 
-- **실시간 공공데이터 연동**: 공공데이터포털/서울 열린데이터광장 API 응답을 `parking_status` 테이블에 주기적으로 upsert 하고, `lib/parking/parkingRepository.ts` 의 `fetchParkingLots` 구현부를 `lib/supabase/parkingLots.ts` 의 `fetchParkingLotsFromSupabase` 호출로 교체하면 나머지 UI/훅/컴포넌트 변경 없이 실시간 서비스로 전환 가능합니다.
-- **전국 단위 확장**: 현재 4개 자치구 → 서울 전체 → 전국 공영주차장으로 데이터 범위만 확장하면 되도록 타입과 지도 렌더링 로직이 구/지역에 종속되지 않게 설계했습니다.
+- **실시간 공공데이터 연동**: 한국교통안전공단의 관리번호 기반 실시간 가능면수 API와 국토교통부 표준데이터의 식별번호(prkplceNo) 체계가 서로 달라 현재는 직접 매칭이 안 됩니다. 두 데이터를 잇는 별도 매핑(이름·좌표 기반 근접 매칭 등)을 확보하거나 지자체별 실시간 API를 개별 연동하면, `lib/parking/parkingRepository.ts` 의 `fetchParkingLots` 구현부를 `lib/supabase/parkingLots.ts` 의 `fetchParkingLotsFromSupabase` 호출로 교체해 나머지 UI/훅/컴포넌트 변경 없이 실시간 서비스로 전환할 수 있습니다.
+- **전국 단위 확장**: 서울 513곳 → 전국 약 18,530곳(국토교통부 표준데이터 전체)으로 확장 가능합니다. 다만 이 규모에서는 현재처럼 모든 마커를 한 번에 DOM으로 렌더링하면 브라우저 성능 문제가 발생하므로, 마커 클러스터링 또는 지도 화면 범위 기반 동적 로딩을 먼저 도입해야 합니다.
 - **회원 시스템 & 개인화된 즐겨찾기**: 현재 `favorites` 는 로그인 없이 전체 방문자가 공유하는 목록입니다. 인증 도입 시 `favorites` 에 `user_id` 컬럼을 추가하고 unique 제약을 `(user_id, parking_lot_id)` 로 변경하면 사용자별 즐겨찾기로 승격할 수 있습니다.
 - **인기 주차장 분석**: `navigation_events` 로그를 집계하여 인기 주차장 추천, 혼잡 예측 등 부가 기능으로 확장할 수 있습니다.
 - **서버 사이드 쓰기 강화**: 현재 `parking_lots`/`parking_status` 는 SQL Editor(또는 서비스 역할 키)로만 쓸 수 있도록 RLS가 설계되어 있습니다. 실시간 수집 파이프라인을 붙일 때는 Supabase Edge Function이나 서버리스 크론에서 서비스 역할 키로 갱신하는 구조를 권장합니다.
