@@ -1,5 +1,7 @@
+import { fetchAirportLiveStatuses } from './airports';
 import { fetchDaejeonLiveStatuses } from './daejeon';
 import { fetchGangneungLiveStatuses } from './gangneung';
+import { fetchJinjuLiveStatuses } from './jinju';
 import { fetchSeoulLiveStatuses } from './seoul';
 import type { RegionAdapter } from './types';
 
@@ -12,6 +14,8 @@ export const REGION_ADAPTERS: RegionAdapter[] = [
   { id: 'daejeon', label: '대전광역시', fetchLiveStatuses: fetchDaejeonLiveStatuses },
   { id: 'gangneung', label: '강원특별자치도 강릉시', fetchLiveStatuses: fetchGangneungLiveStatuses },
   { id: 'seoul', label: '서울특별시', fetchLiveStatuses: fetchSeoulLiveStatuses },
+  { id: 'airports', label: '전국공항(한국공항공사)', fetchLiveStatuses: fetchAirportLiveStatuses },
+  { id: 'jinju', label: '경상남도 진주시', fetchLiveStatuses: fetchJinjuLiveStatuses },
 ];
 
 export type { LiveStatusUpdate, RegionAdapter } from './types';
