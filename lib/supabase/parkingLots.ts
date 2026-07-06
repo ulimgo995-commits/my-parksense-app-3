@@ -4,11 +4,10 @@ import type { ParkingLot } from '@/types/parking';
 /**
  * Supabase 기반 주차장 조회 (database/schema.sql 의 parking_lots + parking_status 테이블 기준).
  *
- * 이번 단계에서 애플리케이션의 실시간 지도 렌더링은 여전히 requirements.md 10 규칙에 따라
- * `/data/parking_lots.json` 하나만 읽습니다 (lib/parking/parkingRepository.ts).
- * 이 모듈은 향후 parking_status 를 실시간 공공데이터 API로 교체했을 때, 지도 렌더링 로직을
- * 전혀 바꾸지 않고도 `fetchParkingLots` 구현부만 `fetchParkingLotsFromSupabase` 호출로
- * 바꿔치기할 수 있도록 동일한 ParkingLot[] 타입을 반환하는 것이 목적입니다.
+ * lib/parking/parkingRepository.ts 의 fetchParkingLots() 가 이 함수를 그대로 호출합니다.
+ * parking_lots(기본 정보)는 database/seed.sql 로 한 번 적재된 값이고, parking_status
+ * (실시간 가능면수)는 app/api/cron/refresh-parking-status 크론이 지역 어댑터
+ * (lib/regions)로 주기 갱신합니다.
  */
 
 interface ParkingLotRow {

@@ -104,6 +104,16 @@ create policy "parking_lots_public_read" on public.parking_lots
 create policy "parking_status_public_read" on public.parking_status
   for select to anon, authenticated using (true);
 
+-- app/api/cron/refresh-parking-status 가 서비스 역할 키 없이 publishable key로 직접
+-- upsert 하므로, parking_status 에 한해 anon 쓰기를 허용합니다 (다른 테이블처럼 인증
+-- 시스템이 없는 MVP 단계의 임시 조치 — 서비스 역할 키 도입 시 이 두 정책은 제거하고
+-- 크론 라우트를 서비스 역할 키로 전환하는 것을 권장합니다).
+create policy "parking_status_public_insert" on public.parking_status
+  for insert to anon, authenticated with check (true);
+
+create policy "parking_status_public_update" on public.parking_status
+  for update to anon, authenticated using (true) with check (true);
+
 create policy "favorites_public_read" on public.favorites
   for select to anon, authenticated using (true);
 

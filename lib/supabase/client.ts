@@ -7,10 +7,11 @@ import { createClient } from '@supabase/supabase-js';
  * 프로젝트 정보를 코드에 직접 사용합니다. Publishable Key는 브라우저에 노출되어도
  * 안전하도록 설계된 공개 키(anon key 역할)이므로 클라이언트 코드에 포함해도 무방합니다.
  *
- * 지도에 표시되는 주차장 목록/상태는 requirements.md 10 규칙에 따라 여전히
- * `/data/parking_lots.json` 하나만 사용하지만, 즐겨찾기(favorites)와 길찾기 클릭 로그
- * (navigation_events)는 이 클라이언트를 통해 Supabase와 실시간으로 동기화됩니다.
- * (database/schema.sql, database/seed.sql 참고)
+ * 지도에 표시되는 주차장 기본 정보/상태는 이 클라이언트로 Supabase(parking_lots +
+ * parking_status)에서 조회하며(lib/supabase/parkingLots.ts), parking_status 는
+ * app/api/cron/refresh-parking-status 크론이 지역 실시간 API로 주기 갱신합니다.
+ * 즐겨찾기(favorites)와 길찾기 클릭 로그(navigation_events)도 이 클라이언트로
+ * Supabase와 실시간으로 동기화됩니다. (database/schema.sql, database/seed.sql 참고)
  */
 const SUPABASE_PROJECT_ID = 'ucuqphqplzjywegngmsm';
 const SUPABASE_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co`;

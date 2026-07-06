@@ -162,7 +162,7 @@ interface ParkingLot {
 | 테이블 | 용도 | 비고 |
 | --- | --- | --- |
 | `parking_lots` | 주차장 기본 정보 (노외/노상 유형 포함) | `id` 는 `data/parking_lots.json` 의 slug(text)를 그대로 기본키로 사용 |
-| `parking_status` | 현재 혼잡도/가능면수 | `parking_lot_id` UNIQUE — 주차장당 "현재 상태" 1행만 유지, 향후 upsert로 갱신 |
+| `parking_status` | 현재 혼잡도/가능면수 | `parking_lot_id` UNIQUE — 주차장당 "현재 상태" 1행만 유지, 크론이 주기적으로 upsert 갱신 |
 | `favorites` | 즐겨찾기 | `parking_lot_id` UNIQUE — 중복 즐겨찾기 방지 |
 | `navigation_events` | 길찾기 클릭 로그 | 집계/분석용 |
 
@@ -173,14 +173,31 @@ interface ParkingLot {
 - **즐겨찾기 CRUD**: `lib/supabase/favorites.ts`(`listFavorites`/`addFavorite`/`removeFavorite`) ↔ `hooks/useFavorites.ts` — Bottom Sheet의 즐겨찾기 버튼과 실시간으로 연결되어 있으며, 낙관적 업데이트 후 실패 시 자동 롤백 + 에러 토스트를 표시합니다.
 - **길찾기 로그**: `lib/supabase/navigationEvents.ts`(`logNavigationEvent`) — Bottom Sheet의 길찾기 버튼 클릭 시 카카오맵 새 탭을 먼저 열고(팝업 차단 방지), 이어서 비동기로 `navigation_events` 에 기록합니다. 실패해도 사용자 흐름을 막지 않습니다.
 - **초기 데이터 적재**: `database/seed.sql` 이 `data/parking_lots.json` 의 13개 주차장을 `parking_lots`/`parking_status` 에 upsert 합니다 (즐겨찾기·길찾기 로그의 외래키 무결성을 위해 선행되어야 합니다).
-- **향후 실시간 조회 대비**: `lib/supabase/parkingLots.ts`(`fetchParkingLotsFromSupabase`)가 `parking_lots` + `parking_status` 를 조인해 앱이 쓰는 것과 동일한 `ParkingLot[]` 타입을 반환하도록 미리 구현되어 있습니다. 지도 렌더링은 여전히 requirements.md 10 규칙에 따라 `data/parking_lots.json` 만 사용하지만(`lib/parking/parkingRepository.ts`), 실시간 전환 시 이 함수로 구현부만 바꾸면 됩니다.
+- **실시간 조회**: `lib/supabase/parkingLots.ts`(`fetchParkingLotsFromSupabase`)가 `parking_lots` + `parking_status` 를 조인해 `ParkingLot[]` 를 반환하며, `lib/parking/parkingRepository.ts` 가 이 함수를 호출합니다. 즉 지도 렌더링은 정적 JSON이 아니라 **Supabase에서 실시간으로 조회**합니다.
+
+### 실시간 자동 갱신 (크론)
+
+- `app/api/cron/refresh-parking-status/route.ts` 가 `lib/regions/` 에 등록된 지역 어댑터(현재 대전 1곳)를 순회해 각 지역 API를 호출하고, 결과를 `parking_status` 테이블에 upsert 합니다.
+- `vercel.json` 의 `crons` 설정으로 Vercel이 이 엔드포인트를 주기 호출합니다 (기본 10분 간격). **Vercel 무료(Hobby) 플랜은 Cron Job 실행 빈도가 하루 1회로 제한됩니다** — 더 자주 갱신하려면 Pro 플랜이 필요합니다. Hobby 플랜이라면 하루 1번만 갱신되는 게 정상입니다.
+- 이 라우트는 서비스 역할 키 없이 기존 Publishable Key로 직접 `parking_status` 에 씁니다. 이를 위해 `database/schema.sql` 에 `parking_status_public_insert`/`parking_status_public_update` 정책을 추가했습니다 — **이미 schema.sql을 실행하셨다면 아래 두 정책 구문만 Supabase SQL Editor에서 추가로 실행**해주세요.
+
+```sql
+create policy "parking_status_public_insert" on public.parking_status
+  for insert to anon, authenticated with check (true);
+
+create policy "parking_status_public_update" on public.parking_status
+  for update to anon, authenticated using (true) with check (true);
+```
+
+- (선택) 아무나 이 엔드포인트를 호출하지 못하도록 Vercel 프로젝트 환경변수에 `CRON_SECRET` (임의의 문자열)을 추가하면, 그 값과 일치하는 `Authorization: Bearer <값>` 헤더가 없는 요청은 401로 거부합니다. Vercel Cron은 이 헤더를 자동으로 붙여서 호출합니다.
+- 지역을 추가할 때는 `lib/regions/<지역>.ts` 에 `RegionAdapter`(이름→id 매칭, API 호출·파싱)를 구현하고 `lib/regions/index.ts` 의 `REGION_ADAPTERS` 배열에 등록하기만 하면 됩니다. 스케줄러·에러 격리·Supabase upsert 로직은 공용이라 다시 만들 필요가 없습니다.
 
 ## 8. 향후 확장 계획
 
-- **다른 지역 실시간 API 연동**: 국가 통합 API(한국교통안전공단 `B553881`)는 위치정보 API와 실시간 API의 식별번호 체계가 서로 달라 직접 매칭이 안 되고, 현재는 서비스 자체도 502 오류로 응답하지 않습니다. 대신 **지자체별로 개별 제공하는 API**(예: 대전광역시 `6300000/pis/parkinglotIF`)는 위치정보와 실시간 잔여면수가 하나의 응답에 함께 들어있어 매칭 문제가 없습니다. 다른 시/도도 data.go.kr에서 지자체명으로 검색해 유사한 API를 찾아 개별 연동하는 방식으로 확장합니다. (강원특별자치도 강릉시 `4201000/GNitsTrafficInfoService_1.0` 도 확인 중 — 승인 직후 전파 지연으로 재시도 필요)
+- **다른 지역 실시간 API 연동**: 국가 통합 API(한국교통안전공단 `B553881`)는 위치정보 API와 실시간 API의 식별번호 체계가 서로 달라 직접 매칭이 안 되고, 현재는 서비스 자체도 502 오류로 응답하지 않습니다. 대신 **지자체별로 개별 제공하는 API**(예: 대전광역시 `6300000/pis/parkinglotIF`)는 위치정보와 실시간 잔여면수가 하나의 응답에 함께 들어있어 매칭 문제가 없습니다. 다른 시/도도 data.go.kr에서 지자체명으로 검색해 유사한 API를 찾아 `lib/regions/`에 어댑터로 추가하는 방식으로 확장합니다. (강원특별자치도 강릉시 `4201000/GNitsTrafficInfoService_1.0` 도 확인 중 — 승인 직후 전파 지연으로 재시도 필요)
 - **지역별 실시간 비율 편차 고려**: 대전은 전체 756곳 중 13곳(약 1.7%)만 의미 있는 실시간 값이 제공되어, 이번 버전은 그 13곳만 반영했습니다. 지역을 추가할 때마다 전체 중 실시간 제공 비율을 먼저 확인하고, 기본 정보만 있는(또는 값이 비어있는) 나머지를 포함할지 여부를 판단해야 합니다.
-- **다중 지역 확장 시 성능**: 앱은 여러 지역 데이터를 미리 하나의 `parking_lots.json`으로 합쳐서 읽으므로, 지역을 몇 개를 추가하든 런타임 성능에는 영향이 없습니다. 다만 전국 약 18,530곳처럼 규모가 커지면 모든 마커를 한 번에 DOM으로 렌더링하기 어려우므로, 이미 구현된 `lib/kakao/clustering.ts` 격자 클러스터링(줌 레벨에 따라 숫자 묶음 ↔ 개별 마커 전환, "이 지역 검색" 클릭 시에만 갱신)을 계속 활용합니다.
-- **진짜 실시간 갱신**: 현재는 배포 시점에 API를 한 번 가져와 `parking_lots.json`/Supabase에 저장한 스냅샷입니다. 분 단위로 실제 갱신되는 실시간 서비스로 만들려면 지역별 API를 주기적으로 호출해 `parking_status` 테이블만 upsert하는 스케줄러(Supabase Edge Function/Vercel Cron 등)가 필요합니다.
+- **다중 지역 확장 시 성능**: 앱은 Supabase에서 `parking_lots`/`parking_status` 를 조회해 렌더링하므로, 지역을 몇 개를 추가하든 프런트엔드 구조 자체는 그대로입니다. 다만 전국 약 18,530곳처럼 규모가 커지면 모든 마커를 한 번에 DOM으로 렌더링하기 어려우므로, 이미 구현된 `lib/kakao/clustering.ts` 격자 클러스터링(줌 레벨에 따라 숫자 묶음 ↔ 개별 마커 전환, "이 지역 검색" 클릭 시에만 갱신)을 계속 활용합니다.
+- **서비스 역할 키로 전환**: 지금은 MVP 단계라 크론이 Publishable Key + 열린 RLS로 `parking_status` 에 씁니다. 정식 서비스 전환 시에는 Supabase 서비스 역할 키를 Vercel 환경변수로 관리하고 크론 라우트에서만 사용하도록 바꾼 뒤, `parking_status_public_insert`/`_update` anon 정책은 제거하는 것을 권장합니다.
 - **회원 시스템 & 개인화된 즐겨찾기**: 현재 `favorites` 는 로그인 없이 전체 방문자가 공유하는 목록입니다. 인증 도입 시 `favorites` 에 `user_id` 컬럼을 추가하고 unique 제약을 `(user_id, parking_lot_id)` 로 변경하면 사용자별 즐겨찾기로 승격할 수 있습니다.
 - **인기 주차장 분석**: `navigation_events` 로그를 집계하여 인기 주차장 추천, 혼잡 예측 등 부가 기능으로 확장할 수 있습니다.
 - **서버 사이드 쓰기 강화**: 현재 `parking_lots`/`parking_status` 는 SQL Editor(또는 서비스 역할 키)로만 쓸 수 있도록 RLS가 설계되어 있습니다. 실시간 수집 파이프라인을 붙일 때는 Supabase Edge Function이나 서버리스 크론에서 서비스 역할 키로 갱신하는 구조를 권장합니다.
