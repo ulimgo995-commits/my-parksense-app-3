@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { KakaoMap, DAEJEON_CITY_HALL } from '@/components/map/KakaoMap';
+import { KakaoMap, DAEJEON_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
 import { SearchBar } from '@/components/search/SearchBar';
 import { Skeleton } from '@/components/common/Skeleton';
 import { useGeolocation } from '@/hooks/useGeolocation';
@@ -24,14 +24,38 @@ interface StatBadge {
 export function LandingScreen() {
   const router = useRouter();
   const { parkingLots, status: lotsStatus } = useParkingLots();
-  const { position: userLocation } = useGeolocation();
+  const { position: userLocation, requestLocation } = useGeolocation();
+  const mapRef = useRef<KakaoMapHandle>(null);
+  // null이면 아직 지도 뷰포트 기준 집계 전(최초 렌더 직후)이라는 뜻 — 이 경우엔 전체 목록으로 보여줍니다.
+  const [visibleLotIds, setVisibleLotIds] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    requestLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!userLocation) return;
+    mapRef.current?.panTo(userLocation, 5);
+  }, [userLocation]);
+
+  // 사용자가 지도를 직접 드래그/확대·축소하면 그 지역 기준으로 통계를 다시 계산합니다.
+  const handleViewportChange = useCallback(() => {
+    mapRef.current?.refreshVisibleArea();
+  }, []);
+
+  const lotsInView = useMemo(() => {
+    if (!visibleLotIds) return parkingLots;
+    const idSet = new Set(visibleLotIds);
+    return parkingLots.filter((lot) => idSet.has(lot.id));
+  }, [parkingLots, visibleLotIds]);
 
   const stats: StatBadge[] = useMemo(() => {
     let available = 0;
     let moderate = 0;
     let congested = 0;
     let full = 0;
-    for (const lot of parkingLots) {
+    for (const lot of lotsInView) {
       const level = getCongestionLevel(lot.totalSpaces, lot.availableSpaces);
       if (level === 'available') available += 1;
       else if (level === 'moderate') moderate += 1;
@@ -39,12 +63,12 @@ export function LandingScreen() {
       else full += 1;
     }
     return [
-      { label: '실시간 주차장', value: parkingLots.length, colorClassName: 'text-text-primary' },
+      { label: '이 지역 주차장', value: lotsInView.length, colorClassName: 'text-text-primary' },
       { label: '여유', value: available, colorClassName: 'text-success' },
       { label: '혼잡', value: congested + moderate, colorClassName: 'text-warning' },
       { label: '만차', value: full, colorClassName: 'text-danger' },
     ];
-  }, [parkingLots]);
+  }, [lotsInView]);
 
   const goToParkingLot = (lot: ParkingLot) => {
     router.push(`/parking?lot=${encodeURIComponent(lot.id)}`);
@@ -91,16 +115,19 @@ export function LandingScreen() {
 
         <p className="mt-4 flex items-center gap-1.5 text-xs text-text-secondary">
           <span className="flex h-4 items-center rounded bg-danger px-1.5 text-[10px] font-bold text-white">LIVE</span>
-          실시간 데이터는 지역별 공공데이터 API 갱신 주기에 따라 업데이트됩니다.
+          지도를 움직이면 그 지역 기준으로 통계가 갱신돼요.
         </p>
       </section>
 
       <div className="relative min-h-[320px] flex-1 md:h-full md:min-h-0">
         <KakaoMap
+          ref={mapRef}
           parkingLots={parkingLots}
           selectedLotId={null}
           userLocation={userLocation}
           onSelectLot={goToParkingLot}
+          onViewportChange={handleViewportChange}
+          onBoundsChanged={setVisibleLotIds}
         />
       </div>
     </div>

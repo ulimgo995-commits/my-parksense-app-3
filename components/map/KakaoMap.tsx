@@ -46,6 +46,12 @@ interface KakaoMapProps {
    * "이 지역 검색" 버튼을 띄우는 용도로 사용합니다.
    */
   onViewportChange?: () => void;
+  /**
+   * 마커/클러스터가 다시 계산될 때마다(최초 로드, panTo 이동 완료, "이 지역 검색" 등)
+   * 현재 지도 화면(뷰포트) 안에 있는 주차장 id 목록을 전달합니다.
+   * 지역 기준 통계 등, 뷰포트에 반응해야 하는 UI에 사용합니다.
+   */
+  onBoundsChanged?: (visibleLotIds: string[]) => void;
 }
 
 interface MarkerEntry {
@@ -67,7 +73,7 @@ interface ClusterEntry {
  * (Kakao Maps SDK 자체가 명령형 API이기 때문에 선언형으로 감싸는 것보다 훨씬 안정적입니다.)
  */
 export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap(
-  { parkingLots, selectedLotId, userLocation, onSelectLot, onViewportChange },
+  { parkingLots, selectedLotId, userLocation, onSelectLot, onViewportChange, onBoundsChanged },
   ref
 ) {
   const { status, error } = useKakaoLoader();
@@ -80,6 +86,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const routeEtaOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const onSelectLotRef = useRef(onSelectLot);
   const onViewportChangeRef = useRef(onViewportChange);
+  const onBoundsChangedRef = useRef(onBoundsChanged);
   const parkingLotsRef = useRef(parkingLots);
   const selectedLotIdRef = useRef(selectedLotId);
   // 'none' | 'autoSync' — 프로그래밍적으로 지도를 움직인 직후인지, 그리고 그 뒤에
@@ -94,6 +101,10 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
   }, [onViewportChange]);
+
+  useEffect(() => {
+    onBoundsChangedRef.current = onBoundsChanged;
+  }, [onBoundsChanged]);
 
   useEffect(() => {
     parkingLotsRef.current = parkingLots;
@@ -119,6 +130,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     const visibleLots = parkingLotsRef.current.filter((lot) =>
       bounds.contain(new window.kakao.maps.LatLng(lot.lat, lot.lng))
     );
+    onBoundsChangedRef.current?.(visibleLots.map((lot) => lot.id));
 
     // 선택된 주차장은 (팬 애니메이션이 아직 끝나지 않아) 현재 화면 범위 밖으로 계산되더라도
     // 항상 표시되도록 안전망을 둡니다.

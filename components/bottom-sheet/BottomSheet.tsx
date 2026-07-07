@@ -24,7 +24,8 @@ const COLLAPSED_TRANSLATE_VH = SHEET_HEIGHT_VH - COLLAPSED_VISIBLE_VH;
 /**
  * 주차장 상세 정보 표시 컨테이너.
  * - Mobile(<md): 드래그 가능한 Bottom Sheet (Collapsed 42% / Expanded 88%)
- * - Desktop(>=md): 지도 위 좌측 하단에 떠 있는 고정 패널 (디자인 가이드 12. 반응형)
+ * - Desktop(>=md): 지도 영역 하단에서 위로 올라오는 카드형 패널.
+ *   (지도를 감싸는 부모가 `relative`이므로 이 컴포넌트는 `absolute`로 그 영역 안에서만 움직입니다.)
  *
  * 즐겨찾기 상태는 상위 페이지 컴포넌트에서 단일 useFavorites 인스턴스로 관리하여
  * Bottom Sheet / 내 주변 / 즐겨찾기 화면 간 상태가 항상 일치하도록 합니다.
@@ -54,10 +55,10 @@ export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite }: Bott
 
   if (isDesktop) {
     return (
-      <div className="pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center md:justify-start md:pl-6">
+      <div className="pointer-events-none absolute inset-x-4 bottom-4 z-40 flex justify-center">
         <div
-          className={`max-h-[70vh] w-[400px] max-w-[92vw] overflow-y-auto rounded-3xl bg-white shadow-floating transition-all duration-300 ease-out ${
-            isOpen ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none translate-y-4 opacity-0'
+          className={`max-h-[55vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-floating transition-transform duration-300 ease-out ${
+            isOpen ? 'pointer-events-auto translate-y-0' : 'pointer-events-none translate-y-[120%]'
           }`}
         >
           <div className="flex justify-end px-3 pt-3">

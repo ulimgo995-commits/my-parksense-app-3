@@ -22,13 +22,29 @@ import { useFavorites } from '@/hooks/useFavorites';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useToast } from '@/hooks/useToast';
 import { getDistanceInMeters } from '@/utils/distance';
-import type { ParkingLot, PlaceResult } from '@/types/parking';
+import type { LatLng, ParkingLot, PlaceResult } from '@/types/parking';
 
-/** 데스크톱 좌측 상세 패널에 선택한 마커가 가려지지 않도록 지도 중심을 오른쪽으로 미는 픽셀 값 */
-const DESKTOP_PANEL_OFFSET_PX = 200;
+/** 데스크톱 하단에서 올라오는 상세 카드에 선택한 마커가 가려지지 않도록 지도 중심을 위로 미는 픽셀 값 */
+const DESKTOP_PANEL_OFFSET_PX = 160;
+/** 검색 결과 목록에 포함할 최대 반경(내 실시간 위치 기준) */
+const NEARBY_RADIUS_METERS = 5000;
 
-type SortMode = 'default' | 'distance';
+type SortMode = 'recommended' | 'distance';
 type MobileView = 'map' | 'list';
+
+/**
+ * 추천순 점수 = 거리 점수(가까울수록 1에 가까움, 반경 밖이면 0) * 0.5
+ *            + 여유 점수(가능면수 비율이 높을수록 1에 가까움) * 0.5
+ * 위치 정보가 없으면 거리 점수 없이 여유 점수만으로 정렬합니다.
+ */
+function getRecommendationScore(lot: ParkingLot, userLocation: LatLng | null): number {
+  const availabilityScore = lot.totalSpaces > 0 ? lot.availableSpaces / lot.totalSpaces : 0;
+  if (!userLocation) return availabilityScore;
+
+  const distanceMeters = getDistanceInMeters(userLocation, { lat: lot.lat, lng: lot.lng });
+  const distanceScore = Math.max(0, 1 - distanceMeters / NEARBY_RADIUS_METERS);
+  return distanceScore * 0.5 + availabilityScore * 0.5;
+}
 
 /**
  * "주차장 찾기" 화면 — 검색/필터/지도/상세 카드에 더해, 예전 "내 주변" 탭의
@@ -50,7 +66,7 @@ export function ParkingFinderScreen() {
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   const [showSearchAreaButton, setShowSearchAreaButton] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
-  const [sortMode, setSortMode] = useState<SortMode>('default');
+  const [sortMode, setSortMode] = useState<SortMode>('recommended');
   const [mobileView, setMobileView] = useState<MobileView>('map');
   const mapRef = useRef<KakaoMapHandle>(null);
   const selectedLotIdRef = useRef(selectedLotId);
@@ -66,7 +82,7 @@ export function ParkingFinderScreen() {
     if (!userLocation) return;
     mapRef.current?.panTo(userLocation, 5);
     if (isDesktop && selectedLotIdRef.current !== null) {
-      mapRef.current?.panByPixels(-DESKTOP_PANEL_OFFSET_PX, 0);
+      mapRef.current?.panByPixels(0, DESKTOP_PANEL_OFFSET_PX);
     }
   }, [userLocation, isDesktop]);
 
@@ -79,14 +95,26 @@ export function ParkingFinderScreen() {
     () => (favoritesOnly ? filteredLots.filter((lot) => isFavorite(lot.id)) : filteredLots),
     [filteredLots, favoritesOnly, isFavorite]
   );
-  const sortedSidebarLots = useMemo(() => {
-    if (sortMode !== 'distance' || !userLocation) return visibleLots;
-    return [...visibleLots].sort(
-      (a, b) =>
-        getDistanceInMeters(userLocation, { lat: a.lat, lng: a.lng }) -
-        getDistanceInMeters(userLocation, { lat: b.lat, lng: b.lng })
+  // 검색 결과 목록은 내 실시간 위치 기준 반경 5km 이내로 제한합니다 (위치를 아직 모르면 전체 표시).
+  const nearbyLots = useMemo(() => {
+    if (!userLocation) return visibleLots;
+    return visibleLots.filter(
+      (lot) => getDistanceInMeters(userLocation, { lat: lot.lat, lng: lot.lng }) <= NEARBY_RADIUS_METERS
     );
-  }, [visibleLots, sortMode, userLocation]);
+  }, [visibleLots, userLocation]);
+  const sortedSidebarLots = useMemo(() => {
+    if (sortMode === 'distance') {
+      if (!userLocation) return nearbyLots;
+      return [...nearbyLots].sort(
+        (a, b) =>
+          getDistanceInMeters(userLocation, { lat: a.lat, lng: a.lng }) -
+          getDistanceInMeters(userLocation, { lat: b.lat, lng: b.lng })
+      );
+    }
+    return [...nearbyLots].sort(
+      (a, b) => getRecommendationScore(b, userLocation) - getRecommendationScore(a, userLocation)
+    );
+  }, [nearbyLots, sortMode, userLocation]);
   const isSheetOpen = selectedLotId !== null;
 
   const handleSelectLot = useCallback(
@@ -96,7 +124,7 @@ export function ParkingFinderScreen() {
       setMobileView('map');
       mapRef.current?.panTo({ lat: lot.lat, lng: lot.lng }, 4);
       if (isDesktop) {
-        mapRef.current?.panByPixels(-DESKTOP_PANEL_OFFSET_PX, 0);
+        mapRef.current?.panByPixels(0, DESKTOP_PANEL_OFFSET_PX);
       }
     },
     [isDesktop]
@@ -133,7 +161,7 @@ export function ParkingFinderScreen() {
     setSelectedLotId(null);
     router.replace('/parking');
     if (isDesktop) {
-      mapRef.current?.panByPixels(DESKTOP_PANEL_OFFSET_PX, 0);
+      mapRef.current?.panByPixels(0, -DESKTOP_PANEL_OFFSET_PX);
     }
   }, [isDesktop, router]);
 
@@ -141,7 +169,7 @@ export function ParkingFinderScreen() {
     if (userLocation) {
       mapRef.current?.panTo(userLocation, 5);
       if (isDesktop && isSheetOpen) {
-        mapRef.current?.panByPixels(-DESKTOP_PANEL_OFFSET_PX, 0);
+        mapRef.current?.panByPixels(0, DESKTOP_PANEL_OFFSET_PX);
       }
     }
     requestLocation();
@@ -174,8 +202,11 @@ export function ParkingFinderScreen() {
   }, [visibleLots, showToast]);
 
   const showPermissionBanner = geoStatus === 'error' && !isBannerDismissed;
-  const locationButtonBottomClass = isSheetOpen ? 'bottom-[calc(42vh+16px)] md:bottom-8' : 'bottom-24 md:bottom-6';
-  const legendBottomClass = isSheetOpen ? 'bottom-6' : 'bottom-20';
+  // 데스크톱은 하단에서 올라오는 상세 카드(최대 55vh)에 가려지지 않도록 두 버튼을 카드 위로 밀어 올립니다.
+  const locationButtonBottomClass = isSheetOpen
+    ? 'bottom-[calc(42vh+16px)] md:bottom-[calc(55vh+16px)]'
+    : 'bottom-24 md:bottom-6';
+  const legendBottomClass = isSheetOpen ? 'bottom-6 md:bottom-[calc(55vh+16px)]' : 'bottom-20';
   const showMapPane = isDesktop || mobileView === 'map';
 
   const sidebarList = (
@@ -192,12 +223,12 @@ export function ParkingFinderScreen() {
         <div className="flex gap-1 text-xs">
           <button
             type="button"
-            onClick={() => setSortMode('default')}
+            onClick={() => setSortMode('recommended')}
             className={`rounded-full px-3 py-1 font-semibold transition-colors ${
-              sortMode === 'default' ? 'bg-primary-light text-primary' : 'text-text-secondary hover:bg-gray-100'
+              sortMode === 'recommended' ? 'bg-primary-light text-primary' : 'text-text-secondary hover:bg-gray-100'
             }`}
           >
-            기본순
+            추천순
           </button>
           <button
             type="button"
@@ -216,7 +247,13 @@ export function ParkingFinderScreen() {
           <EmptyState
             icon="🔍"
             title="조건에 맞는 주차장이 없어요"
-            description={favoritesOnly ? '즐겨찾기한 주차장이 없어요.' : '필터 조건을 조정해보세요.'}
+            description={
+              favoritesOnly
+                ? '즐겨찾기한 주차장이 없어요.'
+                : userLocation && nearbyLots.length === 0
+                  ? '반경 5km 이내에 등록된 주차장이 없어요.'
+                  : '필터 조건을 조정해보세요.'
+            }
             className="pt-16"
           />
         ) : (
@@ -263,6 +300,7 @@ export function ParkingFinderScreen() {
                 userLocation={userLocation ?? DAEJEON_CITY_HALL}
                 onSelect={handleSelectLot}
                 onSelectPlace={handleSelectPlace}
+                placeholder="목적지나 주소를 입력하세요"
               />
             )}
           </div>
