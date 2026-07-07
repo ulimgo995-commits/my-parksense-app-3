@@ -84,6 +84,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const userOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const routeLineRef = useRef<kakao.maps.Polyline | null>(null);
   const routeEtaOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
+  const didCenterOnUserLocationRef = useRef(false);
   const onSelectLotRef = useRef(onSelectLot);
   const onViewportChangeRef = useRef(onViewportChange);
   const onBoundsChangedRef = useRef(onBoundsChanged);
@@ -295,6 +296,22 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       window.kakao.maps.event.removeListener(map, 'idle', handleIdle);
     };
   }, [status, syncMarkers]);
+
+  // 1.5) 최초로 "지도 준비 완료 + 사용자 위치 확인" 두 조건이 모두 충족되는 시점에 한 번만
+  // 그 위치로 중심을 이동합니다. 지도 SDK 로딩과 위치 권한 응답은 어느 쪽이 먼저 끝날지 보장되지
+  // 않으므로, 부모 컴포넌트에서 userLocation 변경만 보고 panTo를 호출하면 지도가 아직 생성되기
+  // 전이라 아무 효과 없이 무시되는 경우가 있었습니다(이후에도 재시도되지 않아 항상 기본 위치에
+  // 머무는 버그의 원인). status와 userLocation 둘 다 의존성에 두어 어느 쪽이 늦게 도착해도
+  // 안전하게 한 번은 실행되도록 합니다.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'success' || !userLocation || didCenterOnUserLocationRef.current) return;
+    didCenterOnUserLocationRef.current = true;
+    const latlng = new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng);
+    pendingActionRef.current = 'autoSync';
+    map.setLevel(5, { anchor: latlng, animate: true });
+    map.panTo(latlng);
+  }, [status, userLocation]);
 
   // 2) 주차장 목록(필터 변경 등)이나 선택 상태가 바뀌면 즉시 마커/클러스터를 다시 계산합니다.
   // (단순 드래그/줌만으로는 재계산되지 않으며, "이 지역 검색" 버튼을 눌러야 합니다.)

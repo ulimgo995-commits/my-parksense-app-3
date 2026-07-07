@@ -1,7 +1,7 @@
 import { CongestionBadge } from '@/components/common/CongestionBadge';
 import { StarIcon } from '@/components/common/icons';
 import { getCongestionLevel } from '@/lib/parking/congestion';
-import { formatDistance, formatNumber } from '@/utils/format';
+import { formatDistance, formatNumber, formatRelativeTime } from '@/utils/format';
 import type { ParkingLot } from '@/types/parking';
 
 interface ParkingListItemProps {
@@ -17,18 +17,19 @@ export function ParkingListItem({ lot, distanceMeters, isFavorite, onSelect, onT
   const level = getCongestionLevel(lot.totalSpaces, lot.availableSpaces);
 
   return (
-    <li className="flex items-center gap-3 border-b border-divider py-3 last:border-b-0">
+    <li className="flex items-start gap-3 border-b border-divider py-3 last:border-b-0">
+      <CongestionBadge level={level} size="sm" variant="solid" className="mt-0.5 shrink-0" />
       <button type="button" onClick={() => onSelect(lot)} className="min-w-0 flex-1 text-left">
-        <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-semibold text-text-primary">{lot.name}</p>
-          <CongestionBadge level={level} size="sm" className="shrink-0" />
-        </div>
-        <p className="mt-0.5 truncate text-xs text-text-secondary">{lot.address}</p>
-        <p className="mt-1 text-xs text-text-secondary">
-          현재 <span className="font-semibold text-primary">{formatNumber(lot.availableSpaces)}면</span> 가능 · 총{' '}
-          {formatNumber(lot.totalSpaces)}면
+        <p className="truncate text-sm font-semibold text-text-primary">{lot.name}</p>
+        <p className="mt-0.5 text-sm font-bold text-text-primary">
+          {formatNumber(lot.availableSpaces)}
+          <span className="font-normal text-text-secondary"> / {formatNumber(lot.totalSpaces)}대</span>
+        </p>
+        <p className="mt-0.5 truncate text-xs text-text-secondary">
+          {lot.address}
           {distanceMeters !== undefined && <> · {formatDistance(distanceMeters)}</>}
         </p>
+        <p className="mt-0.5 text-xs text-text-secondary">{formatRelativeTime(lot.updatedAt)} 업데이트</p>
       </button>
       <button
         type="button"
