@@ -44,7 +44,10 @@ export function TopNavBar() {
   return (
     <header className="sticky top-0 z-[70] border-b border-divider bg-white/95 backdrop-blur-sm">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between py-2 pl-2 pr-4 md:h-16 md:pl-3 md:pr-6">
-        <Link href="/" className="shrink-0" onClick={() => setIsMenuOpen(false)}>
+        {/* xl:-ml-6은 뷰포트가 1280px 이상일 때만 적용됩니다 — 그래야 max-w-6xl(1152px) 컨테이너
+            바깥의 여백이 항상 24px보다 넉넉히 남아서 안전합니다. md(768px)를 기준으로 하면 컨테이너가
+            화면 폭 그대로라 여백이 없는 태블릿/좁은 창 구간에서 로고가 화면 밖으로 잘릴 수 있습니다. */}
+        <Link href="/" className="shrink-0 xl:-ml-6" onClick={() => setIsMenuOpen(false)}>
           <span className="hidden md:inline-flex">
             <Logo height={38} />
           </span>
