@@ -367,9 +367,9 @@ export function ParkingFinderScreen() {
         {/*
           지도 우측 상단 컨트롤 — 참고 디자인처럼 항상 떠 있는 실시간 토글 + 지도 범위(재검색) 버튼.
           모바일은 검색창/필터 오버레이가 이미 상단 전체를 차지하므로 데스크톱에서만 보여줍니다.
-          지도 확대/축소 컨트롤(우측)과 겹치지 않도록 오른쪽 여백을 넉넉히 둡니다.
+          지도 확대/축소 컨트롤(우측)과 겹치지 않을 정도로만 오른쪽 여백을 둡니다.
         */}
-        <div className="pointer-events-none absolute right-16 top-4 z-30 hidden items-center gap-2 md:right-20 md:flex">
+        <div className="pointer-events-none absolute right-12 top-4 z-30 hidden items-center gap-2 md:flex">
           <div className="pointer-events-auto flex h-10 items-center rounded-full bg-white px-3 shadow-floating">
             <ToggleSwitch
               checked={isRealtimeOnly}
