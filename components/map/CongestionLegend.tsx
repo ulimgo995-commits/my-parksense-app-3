@@ -2,10 +2,10 @@ import { CONGESTION_LEVELS, getCongestionMetaByLevel } from '@/lib/parking/conge
 import type { CongestionLevel } from '@/types/parking';
 
 const RANGE_LABEL: Record<CongestionLevel, string> = {
-  available: '60% 이상',
-  moderate: '30~59%',
-  congested: '1~29%',
-  full: '0면',
+  available: '76~100%',
+  moderate: '51~75%',
+  congested: '26~50%',
+  full: '0~25%',
 };
 
 const DOT_COLOR_CLASS: Record<CongestionLevel, string> = {

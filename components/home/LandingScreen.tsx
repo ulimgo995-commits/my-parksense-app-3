@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { KakaoMap, DAEJEON_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
+import { CurrentLocationButton } from '@/components/map/CurrentLocationButton';
+import { CongestionLegend } from '@/components/map/CongestionLegend';
 import { SearchBar } from '@/components/search/SearchBar';
 import { Skeleton } from '@/components/common/Skeleton';
+import { ToggleSwitch } from '@/components/common/ToggleSwitch';
+import { GridIcon } from '@/components/common/icons';
 import { LocationPermissionBanner } from '@/components/permission/LocationPermissionBanner';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useParkingLots } from '@/hooks/useParkingLots';
@@ -30,6 +34,8 @@ export function LandingScreen() {
   // null이면 아직 지도 뷰포트 기준 집계 전(최초 렌더 직후)이라는 뜻 — 이 경우엔 전체 목록으로 보여줍니다.
   const [visibleLotIds, setVisibleLotIds] = useState<string[] | null>(null);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
+  // 실제로 걸러낼 데이터가 없어 켜고 끄는 것 외의 동작은 없는, 참고 디자인 재현용 토글입니다.
+  const [isRealtimeOnly, setIsRealtimeOnly] = useState(true);
 
   useEffect(() => {
     requestLocation();
@@ -83,6 +89,11 @@ export function LandingScreen() {
 
   const goToPlace = (place: PlaceResult) => {
     router.push(`/parking?lat=${place.lat}&lng=${place.lng}`);
+  };
+
+  const handleCurrentLocationClick = () => {
+    if (userLocation) mapRef.current?.panTo(userLocation, 5);
+    requestLocation();
   };
 
   return (
@@ -147,6 +158,35 @@ export function LandingScreen() {
             </div>
           </div>
         )}
+
+        {/* 실시간 토글은 참고 디자인 재현용(실제 필터링 없음), "필터"는 세부 필터가 있는 주차장 찾기로 이동합니다. */}
+        <div className="pointer-events-none absolute right-4 top-4 z-30 hidden items-center gap-2 md:flex">
+          <div className="pointer-events-auto flex h-10 items-center rounded-full bg-white px-3 shadow-floating">
+            <ToggleSwitch
+              checked={isRealtimeOnly}
+              onChange={() => setIsRealtimeOnly((prev) => !prev)}
+              label="실시간 주차장만 보기"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push('/parking')}
+            className="pointer-events-auto flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 text-xs font-semibold text-text-primary shadow-floating transition-colors hover:bg-gray-50"
+          >
+            <GridIcon size={14} />
+            필터
+          </button>
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 hidden justify-center md:flex">
+          <CongestionLegend variant="bar" />
+        </div>
+
+        <CurrentLocationButton
+          onClick={handleCurrentLocationClick}
+          isLoading={geoStatus === 'loading'}
+          className="pointer-events-auto absolute bottom-4 right-4 z-30 md:right-6"
+        />
       </div>
     </div>
   );

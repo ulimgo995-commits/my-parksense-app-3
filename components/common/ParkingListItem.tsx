@@ -1,5 +1,5 @@
 import { CongestionBadge } from '@/components/common/CongestionBadge';
-import { StarIcon } from '@/components/common/icons';
+import { CloseIcon, StarIcon } from '@/components/common/icons';
 import { getCongestionLevel } from '@/lib/parking/congestion';
 import { formatDistance, formatNumber, formatRelativeTime } from '@/utils/format';
 import type { ParkingLot } from '@/types/parking';
@@ -10,10 +10,19 @@ interface ParkingListItemProps {
   isFavorite: boolean;
   onSelect: (lot: ParkingLot) => void;
   onToggleFavorite: (lot: ParkingLot) => void;
+  /** true면 별 아이콘 대신 빨간 삭제 아이콘을 보여줍니다 (즐겨찾기 "편집" 모드용). 동작은 onToggleFavorite과 동일합니다. */
+  showRemoveIcon?: boolean;
 }
 
 /** 내 주변 / 즐겨찾기 화면에서 공통으로 사용하는 주차장 목록 행 */
-export function ParkingListItem({ lot, distanceMeters, isFavorite, onSelect, onToggleFavorite }: ParkingListItemProps) {
+export function ParkingListItem({
+  lot,
+  distanceMeters,
+  isFavorite,
+  onSelect,
+  onToggleFavorite,
+  showRemoveIcon = false,
+}: ParkingListItemProps) {
   const level = getCongestionLevel(lot.totalSpaces, lot.availableSpaces);
 
   return (
@@ -34,12 +43,16 @@ export function ParkingListItem({ lot, distanceMeters, isFavorite, onSelect, onT
       <button
         type="button"
         onClick={() => onToggleFavorite(lot)}
-        aria-label={isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+        aria-label={showRemoveIcon ? '즐겨찾기에서 삭제' : isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}
         className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
-          isFavorite ? 'text-primary' : 'text-text-secondary hover:bg-gray-100'
+          showRemoveIcon
+            ? 'text-danger hover:bg-danger-light'
+            : isFavorite
+              ? 'text-primary'
+              : 'text-text-secondary hover:bg-gray-100'
         }`}
       >
-        <StarIcon filled={isFavorite} />
+        {showRemoveIcon ? <CloseIcon size={16} /> : <StarIcon filled={isFavorite} />}
       </button>
     </li>
   );

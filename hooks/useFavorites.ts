@@ -12,6 +12,8 @@ import { addFavorite, listFavorites, removeFavorite } from '@/lib/supabase/favor
  */
 export function useFavorites() {
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
+  // 주차장 id -> 즐겨찾기에 추가된 시각(ISO). "내가 추가한 순" 정렬에 사용합니다.
+  const [addedAtById, setAddedAtById] = useState<Record<string, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -21,6 +23,7 @@ export function useFavorites() {
       .then((records) => {
         if (cancelled) return;
         setFavoriteIds(records.map((record) => record.parking_lot_id));
+        setAddedAtById(Object.fromEntries(records.map((record) => [record.parking_lot_id, record.created_at])));
       })
       .catch((err) => {
         console.warn('[useFavorites] 즐겨찾기 목록을 불러오지 못했습니다:', err);
@@ -40,9 +43,17 @@ export function useFavorites() {
     async (parkingLotId: string): Promise<boolean> => {
       const wasFavorite = favoriteIds.includes(parkingLotId);
       const nextIsFavorite = !wasFavorite;
+      const addedAt = new Date().toISOString();
 
       // 낙관적 업데이트: 서버 응답을 기다리지 않고 즉시 UI에 반영합니다.
       setFavoriteIds((prev) => (wasFavorite ? prev.filter((id) => id !== parkingLotId) : [...prev, parkingLotId]));
+      setAddedAtById((prev) => {
+        if (wasFavorite) {
+          const { [parkingLotId]: _removed, ...rest } = prev;
+          return rest;
+        }
+        return { ...prev, [parkingLotId]: addedAt };
+      });
 
       try {
         if (wasFavorite) {
@@ -54,11 +65,16 @@ export function useFavorites() {
       } catch (err) {
         // 실패 시 낙관적 업데이트를 롤백합니다.
         setFavoriteIds((prev) => (wasFavorite ? [...prev, parkingLotId] : prev.filter((id) => id !== parkingLotId)));
+        setAddedAtById((prev) => {
+          if (wasFavorite) return { ...prev, [parkingLotId]: addedAt };
+          const { [parkingLotId]: _removed, ...rest } = prev;
+          return rest;
+        });
         throw err;
       }
     },
     [favoriteIds]
   );
 
-  return { favoriteIds, isFavorite, toggleFavorite, isLoaded };
+  return { favoriteIds, addedAtById, isFavorite, toggleFavorite, isLoaded };
 }
