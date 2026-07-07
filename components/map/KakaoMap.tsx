@@ -84,7 +84,9 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const userOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const routeLineRef = useRef<kakao.maps.Polyline | null>(null);
   const routeEtaOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
-  const didCenterOnUserLocationRef = useRef(false);
+  // 사용자가 지도를 직접 드래그/확대·축소하면 true — 그 뒤로는 실시간 위치가 갱신돼도
+  // 자동으로 지도를 다시 옮기지 않습니다(사용자가 보고 있는 화면을 방해하지 않기 위함).
+  const hasUserMovedMapRef = useRef(false);
   const onSelectLotRef = useRef(onSelectLot);
   const onViewportChangeRef = useRef(onViewportChange);
   const onBoundsChangedRef = useRef(onBoundsChanged);
@@ -274,6 +276,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     // (panTo 등 프로그래밍적 이동 중에는 pendingActionRef 가 'none'이 아니므로 무시됩니다.)
     const handleUserViewportChange = () => {
       if (pendingActionRef.current !== 'none') return;
+      hasUserMovedMapRef.current = true;
       onViewportChangeRef.current?.();
     };
     window.kakao.maps.event.addListener(map, 'dragend', handleUserViewportChange);
@@ -298,23 +301,15 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     };
   }, [status, syncMarkers]);
 
-  // 1.5) 최초로 "지도 준비 완료 + 사용자 위치 확인" 두 조건이 모두 충족되는 시점에 한 번만
-  // 그 위치로 중심을 이동합니다. 지도 SDK 로딩과 위치 권한 응답은 어느 쪽이 먼저 끝날지 보장되지
-  // 않으므로, 부모 컴포넌트에서 userLocation 변경만 보고 panTo를 호출하면 지도가 아직 생성되기
-  // 전이라 아무 효과 없이 무시되는 경우가 있었습니다(이후에도 재시도되지 않아 항상 기본 위치에
-  // 머무는 버그의 원인). status와 userLocation 둘 다 의존성에 두어 어느 쪽이 늦게 도착해도
-  // 안전하게 한 번은 실행되도록 합니다.
-  //
-  // userLocation은 위치 정확도가 개선될 때마다(useGeolocation의 지연 재조회) 이후에도 여러 번
-  // 바뀔 수 있는데, 이미 사용자가 특정 주차장을 선택해 그쪽을 보고 있다면 그 화면을 방해하면
-  // 안 됩니다("주차장 선택 후 몇 초 뒤 엉뚱한 곳으로 지도가 이동하는" 버그의 원인이었습니다).
-  // 그래서 (a) 한 번 중심 이동을 실행하면 다시는 하지 않고, (b) 선택된 주차장이 있는 동안에는
-  // 아예 실행하지 않되 그 시점을 "이미 사용함"으로 처리하지 않아 선택 해제 후 재시도될 여지를 둡니다.
+  // 1.5) 실시간 위치가 (재조회로 정확도가 개선되며) 바뀔 때마다 지도 중심을 그 위치로 계속
+  // 따라가도록 합니다. 최초 한 번만 이동시키면, 브라우저가 처음엔 부정확한 위치를 주고 몇 초 뒤
+  // 정확한 값으로 갱신해도 지도가 그 갱신을 반영하지 못해 "현재 위치" 버튼을 눌러야만 정확한
+  // 위치로 이동하는 문제가 있었습니다. 다만 사용자가 이미 지도를 직접 움직였거나 특정 주차장을
+  // 선택해 그쪽을 보고 있다면 그 화면을 방해하면 안 되므로 그 두 경우엔 따라가지 않습니다.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || status !== 'success' || !userLocation || didCenterOnUserLocationRef.current) return;
-    if (selectedLotIdRef.current !== null) return;
-    didCenterOnUserLocationRef.current = true;
+    if (!map || status !== 'success' || !userLocation) return;
+    if (selectedLotIdRef.current !== null || hasUserMovedMapRef.current) return;
     const latlng = new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng);
     pendingActionRef.current = 'autoSync';
     map.setLevel(5, { anchor: latlng, animate: true });
