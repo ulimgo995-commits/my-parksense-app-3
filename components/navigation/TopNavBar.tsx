@@ -43,13 +43,13 @@ export function TopNavBar() {
 
   return (
     <header className="sticky top-0 z-[70] border-b border-divider bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:h-16 md:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between py-2 pl-2 pr-4 md:h-16 md:pl-3 md:pr-6">
         <Link href="/" className="shrink-0" onClick={() => setIsMenuOpen(false)}>
           <span className="hidden md:inline-flex">
-            <Logo height={28} />
+            <Logo height={38} />
           </span>
           <span className="inline-flex md:hidden">
-            <LogoMark size={28} />
+            <LogoMark size={36} />
           </span>
         </Link>
 

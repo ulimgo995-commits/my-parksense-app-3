@@ -8,7 +8,6 @@ import { CongestionLegend } from '@/components/map/CongestionLegend';
 import { SearchBar } from '@/components/search/SearchBar';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
-import { GridIcon } from '@/components/common/icons';
 import { LocationPermissionBanner } from '@/components/permission/LocationPermissionBanner';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useParkingLots } from '@/hooks/useParkingLots';
@@ -159,7 +158,7 @@ export function LandingScreen() {
           </div>
         )}
 
-        {/* 실시간 토글은 참고 디자인 재현용(실제 필터링 없음), "필터"는 세부 필터가 있는 주차장 찾기로 이동합니다. */}
+        {/* 실시간 토글은 참고 디자인 재현용(실제 필터링 없음) */}
         <div className="pointer-events-none absolute right-4 top-4 z-30 hidden items-center gap-2 md:flex">
           <div className="pointer-events-auto flex h-10 items-center rounded-full bg-white px-3 shadow-floating">
             <ToggleSwitch
@@ -168,14 +167,6 @@ export function LandingScreen() {
               label="실시간 주차장만 보기"
             />
           </div>
-          <button
-            type="button"
-            onClick={() => router.push('/parking')}
-            className="pointer-events-auto flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 text-xs font-semibold text-text-primary shadow-floating transition-colors hover:bg-gray-50"
-          >
-            <GridIcon size={14} />
-            필터
-          </button>
         </div>
 
         <div className="pointer-events-none absolute inset-x-0 bottom-4 z-30 hidden justify-center md:flex">
