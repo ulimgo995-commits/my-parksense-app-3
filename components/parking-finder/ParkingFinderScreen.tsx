@@ -14,7 +14,8 @@ import { EmptyState } from '@/components/common/EmptyState';
 import { Button } from '@/components/common/Button';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ParkingListItem } from '@/components/common/ParkingListItem';
-import { GridIcon, ParkingPinIcon } from '@/components/common/icons';
+import { GridIcon, ParkingPinIcon, SearchIcon } from '@/components/common/icons';
+import { DEFAULT_RADIUS_KM } from '@/components/search/filterOptions';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useParkingLots } from '@/hooks/useParkingLots';
 import { useParkingFilters } from '@/hooks/useParkingFilters';
@@ -26,8 +27,6 @@ import type { LatLng, ParkingLot, PlaceResult } from '@/types/parking';
 
 /** 데스크톱 하단에서 올라오는 상세 카드에 선택한 마커가 가려지지 않도록 지도 중심을 위로 미는 픽셀 값 */
 const DESKTOP_PANEL_OFFSET_PX = 160;
-/** 검색 결과 목록에 포함할 최대 반경(내 실시간 위치 기준) */
-const NEARBY_RADIUS_METERS = 5000;
 
 type SortMode = 'recommended' | 'distance';
 type MobileView = 'map' | 'list';
@@ -37,12 +36,12 @@ type MobileView = 'map' | 'list';
  *            + 여유 점수(가능면수 비율이 높을수록 1에 가까움) * 0.5
  * 위치 정보가 없으면 거리 점수 없이 여유 점수만으로 정렬합니다.
  */
-function getRecommendationScore(lot: ParkingLot, userLocation: LatLng | null): number {
+function getRecommendationScore(lot: ParkingLot, userLocation: LatLng | null, radiusMeters: number): number {
   const availabilityScore = lot.totalSpaces > 0 ? lot.availableSpaces / lot.totalSpaces : 0;
   if (!userLocation) return availabilityScore;
 
   const distanceMeters = getDistanceInMeters(userLocation, { lat: lot.lat, lng: lot.lng });
-  const distanceScore = Math.max(0, 1 - distanceMeters / NEARBY_RADIUS_METERS);
+  const distanceScore = Math.max(0, 1 - distanceMeters / radiusMeters);
   return distanceScore * 0.5 + availabilityScore * 0.5;
 }
 
@@ -66,6 +65,7 @@ export function ParkingFinderScreen() {
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   const [showSearchAreaButton, setShowSearchAreaButton] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
   const [sortMode, setSortMode] = useState<SortMode>('recommended');
   const [mobileView, setMobileView] = useState<MobileView>('map');
   const mapRef = useRef<KakaoMapHandle>(null);
@@ -90,13 +90,15 @@ export function ParkingFinderScreen() {
     () => (favoritesOnly ? filteredLots.filter((lot) => isFavorite(lot.id)) : filteredLots),
     [filteredLots, favoritesOnly, isFavorite]
   );
-  // 검색 결과 목록은 내 실시간 위치 기준 반경 5km 이내로 제한합니다 (위치를 아직 모르면 전체 표시).
+  // 검색 결과 목록은 내 실시간 위치 기준 반경(radiusKm, 기본 3km) 이내로 제한합니다
+  // (위치를 아직 모르면 전체 표시).
   const nearbyLots = useMemo(() => {
     if (!userLocation) return visibleLots;
+    const radiusMeters = radiusKm * 1000;
     return visibleLots.filter(
-      (lot) => getDistanceInMeters(userLocation, { lat: lot.lat, lng: lot.lng }) <= NEARBY_RADIUS_METERS
+      (lot) => getDistanceInMeters(userLocation, { lat: lot.lat, lng: lot.lng }) <= radiusMeters
     );
-  }, [visibleLots, userLocation]);
+  }, [visibleLots, userLocation, radiusKm]);
   const sortedSidebarLots = useMemo(() => {
     if (sortMode === 'distance') {
       if (!userLocation) return nearbyLots;
@@ -106,10 +108,12 @@ export function ParkingFinderScreen() {
           getDistanceInMeters(userLocation, { lat: b.lat, lng: b.lng })
       );
     }
+    const radiusMeters = radiusKm * 1000;
     return [...nearbyLots].sort(
-      (a, b) => getRecommendationScore(b, userLocation) - getRecommendationScore(a, userLocation)
+      (a, b) =>
+        getRecommendationScore(b, userLocation, radiusMeters) - getRecommendationScore(a, userLocation, radiusMeters)
     );
-  }, [nearbyLots, sortMode, userLocation]);
+  }, [nearbyLots, sortMode, userLocation, radiusKm]);
   const isSheetOpen = selectedLotId !== null;
 
   const handleSelectLot = useCallback(
@@ -212,6 +216,42 @@ export function ParkingFinderScreen() {
           주차장 찾기
         </h1>
         <p className="mt-1 text-xs text-text-secondary">원하는 지역을 검색하고 실시간 주차 가능 여부를 확인하세요.</p>
+
+        {lotsStatus === 'loading' ? (
+          <Skeleton className="mt-4 h-10 rounded-full" />
+        ) : (
+          <div className="mt-4 flex gap-2">
+            <div className="min-w-0 flex-1">
+              <SearchBar
+                parkingLots={visibleLots}
+                userLocation={userLocation ?? DAEJEON_CITY_HALL}
+                onSelect={handleSelectLot}
+                onSelectPlace={handleSelectPlace}
+                placeholder="지역명, 주소 또는 주차장명을 검색하세요"
+              />
+            </div>
+            {/* 검색은 입력하는 즉시 실시간으로 반영되므로, 이 버튼은 시각적 확인 용도입니다. */}
+            <button
+              type="button"
+              className="flex h-12 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-semibold text-white transition-colors hover:bg-primary-dark"
+            >
+              <SearchIcon size={16} />
+              검색
+            </button>
+          </div>
+        )}
+
+        {lotsStatus !== 'loading' && (
+          <div className="mt-3">
+            <FilterBar
+              {...parkingFilters}
+              favoritesOnly={favoritesOnly}
+              onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
+              radiusKm={radiusKm}
+              onSetRadiusKm={setRadiusKm}
+            />
+          </div>
+        )}
       </div>
       <div className="flex items-center justify-between border-b border-divider px-4 py-2">
         <p className="text-xs font-semibold text-text-secondary">검색 결과 {sortedSidebarLots.length}개</p>
@@ -246,7 +286,7 @@ export function ParkingFinderScreen() {
               favoritesOnly
                 ? '즐겨찾기한 주차장이 없어요.'
                 : userLocation && nearbyLots.length === 0
-                  ? '반경 5km 이내에 등록된 주차장이 없어요.'
+                  ? `반경 ${radiusKm}km 이내에 등록된 주차장이 없어요.`
                   : '필터 조건을 조정해보세요.'
             }
             className="pt-16"
@@ -285,8 +325,13 @@ export function ParkingFinderScreen() {
           onViewportChange={() => setShowSearchAreaButton(true)}
         />
 
+        {/*
+          검색창/필터는 데스크톱에서는 왼쪽 사이드바 상단에 표시하므로(참고 디자인과 동일하게),
+          여기서는 md:hidden으로 감춰 모바일(지도 화면)에서만 지도 위에 떠 있도록 합니다.
+          권한 배너/이 지역 검색 버튼은 지도 자체와 관련된 것이라 모든 화면 크기에서 유지합니다.
+        */}
         <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex flex-col items-center gap-2 p-4">
-          <div className="pointer-events-auto w-full max-w-xl">
+          <div className="pointer-events-auto w-full max-w-xl md:hidden">
             {lotsStatus === 'loading' ? (
               <Skeleton className="h-12 rounded-full" />
             ) : (
@@ -300,11 +345,13 @@ export function ParkingFinderScreen() {
             )}
           </div>
           {lotsStatus !== 'loading' && (
-            <div className="pointer-events-auto w-full max-w-xl">
+            <div className="pointer-events-auto w-full max-w-xl md:hidden">
               <FilterBar
                 {...parkingFilters}
                 favoritesOnly={favoritesOnly}
                 onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
+                radiusKm={radiusKm}
+                onSetRadiusKm={setRadiusKm}
               />
             </div>
           )}

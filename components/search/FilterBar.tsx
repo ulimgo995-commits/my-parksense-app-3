@@ -3,10 +3,17 @@
 import { useState } from 'react';
 import { getCongestionMetaByLevel } from '@/lib/parking/congestion';
 import { PARKING_LOT_TYPE_LABEL } from '@/lib/parking/parkingLotType';
-import { FilterIcon, StarIcon } from '@/components/common/icons';
+import { FilterIcon, RefreshIcon, StarIcon, WifiIcon } from '@/components/common/icons';
 import { FilterChip } from './FilterChip';
 import { FilterModal } from './FilterModal';
-import { CongestionFilterOptions, FeeFilterOptions, HoursFilterOptions, TypeFilterOptions } from './filterOptions';
+import {
+  CongestionFilterOptions,
+  DEFAULT_RADIUS_KM,
+  FeeFilterOptions,
+  HoursFilterOptions,
+  RadiusFilterOptions,
+  TypeFilterOptions,
+} from './filterOptions';
 import type { UseParkingFiltersResult } from '@/hooks/useParkingFilters';
 import { DEFAULT_PARKING_FILTERS } from '@/hooks/useParkingFilters';
 
@@ -36,20 +43,43 @@ function getTypeChipLabel(filters: UseParkingFiltersResult['filters']): string {
 interface FilterBarProps extends UseParkingFiltersResult {
   favoritesOnly: boolean;
   onToggleFavoritesOnly: () => void;
+  /** 제공되면 검색 결과 반경(km) 칩이 함께 표시됩니다. */
+  radiusKm?: number;
+  onSetRadiusKm?: (km: number) => void;
 }
 
 /**
  * 검색창 아래 가로 스크롤 필터 행. 디자인 참고 이미지의 필터 칩 UI를 구현합니다.
  * 각 칩은 개별 드롭다운으로도, "필터" 버튼을 통해 통합 패널로도 조작할 수 있습니다.
  */
-export function FilterBar({ favoritesOnly, onToggleFavoritesOnly, ...props }: FilterBarProps) {
-  const { filters, toggleCongestionLevel, selectAllCongestionLevels, setMaxFee, setHoursMode, setType, activeFilterCount } =
+export function FilterBar({ favoritesOnly, onToggleFavoritesOnly, radiusKm, onSetRadiusKm, ...props }: FilterBarProps) {
+  const { filters, toggleCongestionLevel, selectAllCongestionLevels, setMaxFee, setHoursMode, setType, resetFilters, activeFilterCount } =
     props;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // 우리 데이터는 전부 실시간 정보라 실제로 걸러낼 대상이 없어 동작은 없는, 참고 디자인 재현용 토글입니다.
+  const [isRealtimeOnly, setIsRealtimeOnly] = useState(true);
 
   return (
     <>
       <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
+        <button
+          type="button"
+          onClick={() => setIsRealtimeOnly((prev) => !prev)}
+          aria-pressed={isRealtimeOnly}
+          className={`flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-semibold shadow-card transition-colors ${
+            isRealtimeOnly
+              ? 'border-primary bg-primary text-white'
+              : 'border-divider bg-white text-text-primary hover:bg-gray-50'
+          }`}
+        >
+          <WifiIcon size={14} />
+          실시간 주차만
+        </button>
+        {radiusKm !== undefined && onSetRadiusKm && (
+          <FilterChip label={`거리 ${radiusKm}km`} isActive={radiusKm !== DEFAULT_RADIUS_KM}>
+            {(close) => <RadiusFilterOptions radiusKm={radiusKm} setRadiusKm={onSetRadiusKm} onAfterSelect={close} />}
+          </FilterChip>
+        )}
         <FilterChip
           label={getCongestionChipLabel(filters)}
           isActive={filters.congestionLevels.length !== DEFAULT_PARKING_FILTERS.congestionLevels.length}
@@ -104,6 +134,20 @@ export function FilterBar({ favoritesOnly, onToggleFavoritesOnly, ...props }: Fi
           )}
         </button>
       </div>
+
+      {(activeFilterCount > 0 || (radiusKm !== undefined && radiusKm !== DEFAULT_RADIUS_KM)) && (
+        <button
+          type="button"
+          onClick={() => {
+            resetFilters();
+            onSetRadiusKm?.(DEFAULT_RADIUS_KM);
+          }}
+          className="mt-1.5 flex items-center gap-1 text-xs font-semibold text-text-secondary transition-colors hover:text-primary"
+        >
+          <RefreshIcon size={12} />
+          필터 초기화
+        </button>
+      )}
 
       {isModalOpen && <FilterModal {...props} onClose={() => setIsModalOpen(false)} />}
     </>

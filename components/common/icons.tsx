@@ -19,6 +19,15 @@ export function PinIcon({ className = '', size = 14 }: IconProps) {
   );
 }
 
+export function SearchIcon({ className = '', size = 16 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+      <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function ClockIcon({ className = '', size = 14 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
@@ -92,6 +101,21 @@ export function ChevronDownIcon({ className = '', size = 12 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
       <path d="m6 9 6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function WifiIcon({ className = '', size = 14 }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M2 8.5c5.5-5 14.5-5 20 0M5.5 12.5c3.7-3.3 9.3-3.3 13 0M9.2 16.3c2-1.7 3.6-1.7 5.6 0"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="19.5" r="1.3" fill="currentColor" />
     </svg>
   );
 }

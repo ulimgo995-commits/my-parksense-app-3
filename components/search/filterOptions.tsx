@@ -139,6 +139,35 @@ export function HoursFilterOptions({ filters, setHoursMode, onAfterSelect }: Hou
   );
 }
 
+/** 검색 결과에 포함할 반경(내 실시간 위치 기준) 옵션 (km) */
+export const RADIUS_OPTIONS_KM = [1, 3, 5];
+export const DEFAULT_RADIUS_KM = 3;
+
+interface RadiusFilterOptionsProps {
+  radiusKm: number;
+  setRadiusKm: (km: number) => void;
+  onAfterSelect?: () => void;
+}
+
+/** 검색 결과 반경 필터 — 단일 선택 */
+export function RadiusFilterOptions({ radiusKm, setRadiusKm, onAfterSelect }: RadiusFilterOptionsProps) {
+  return (
+    <div className="flex w-32 flex-col gap-0.5">
+      {RADIUS_OPTIONS_KM.map((km) => (
+        <RadioRow
+          key={km}
+          label={`${km}km 이내`}
+          selected={radiusKm === km}
+          onSelect={() => {
+            setRadiusKm(km);
+            onAfterSelect?.();
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface TypeFilterOptionsProps {
   filters: UseParkingFiltersResult['filters'];
   setType: UseParkingFiltersResult['setType'];
