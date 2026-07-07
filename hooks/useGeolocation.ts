@@ -19,13 +19,26 @@ interface UseGeolocationResult extends UseGeolocationState {
 const GEOLOCATION_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
   timeout: 8000,
+  maximumAge: 30000,
+};
+
+/** 캐시를 쓰지 않고 그 시점 기준 최신 위치를 강제로 다시 조회할 때 사용합니다. */
+const FRESH_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 8000,
   maximumAge: 0,
 };
 
-/** 이 정확도(미터) 이하로 들어오면 충분히 정확하다고 보고 더 이상 위치를 감시하지 않습니다. */
-const GOOD_ENOUGH_ACCURACY_METERS = 100;
-/** 배터리/권한 표시를 계속 켜두지 않도록, 이 시간이 지나면 감시를 강제로 종료합니다. */
-const MAX_WATCH_DURATION_MS = 10000;
+/**
+ * 최초 위치를 받은 뒤 이 시간(ms)들이 지날 때마다 한 번씩 더 "그냥" 재조회해서 결과를
+ * 덮어씁니다. "현재 위치" 버튼을 몇 초 뒤 눌렀을 때 정확한 값이 나오는 이유는 버튼 자체가
+ * 특별해서가 아니라, 그만큼 시간이 지나 OS의 Wi-Fi 기반 위치 확정이 끝났기 때문입니다.
+ * 그 타이밍을 자동으로 재현하기 위해 여러 시점에 같은 방식으로 재조회합니다.
+ * (이전에 시도했던 "정확도(accuracy) 필드로 비교해서 더 나은 값만 채택" 방식은, 그 필드 자체가
+ * 신뢰할 수 없어 오히려 나중에 온 정답을 걸러내는 부작용이 있었습니다 — 그래서 비교 없이
+ * 매번 최신 결과로 그냥 덮어씁니다.)
+ */
+const REFINE_DELAYS_MS = [3000, 6000, 10000];
 
 function mapErrorReason(error: GeolocationPositionError): GeolocationErrorReason {
   switch (error.code) {
@@ -43,12 +56,6 @@ function mapErrorReason(error: GeolocationPositionError): GeolocationErrorReason
 /**
  * 브라우저 Geolocation API 래퍼 훅.
  * 위치 권한 거부/타임아웃 등의 실패 사유를 구분해 UI에서 적절한 안내를 할 수 있도록 합니다.
- *
- * PC 브라우저는 최초 위치를 IP/캐시 기반의 부정확한 값으로 먼저 주고, 잠시 후에야 Wi-Fi 기반의
- * 정확한 값을 확정하는 경우가 많습니다(수동으로 "현재 위치" 버튼을 다시 눌렀을 때만 정확한 위치가
- * 나오던 문제의 원인). getCurrentPosition을 한 번만 호출하는 대신 watchPosition으로 감시하다가,
- * 더 정확한 값(정확도 반경이 더 작은 값)이 들어올 때마다 즉시 갱신하고, 충분히 정확해지거나
- * 일정 시간이 지나면 감시를 종료합니다. 고정된 시간을 기다리지 않고 "정확해지는 즉시" 반영됩니다.
  */
 export function useGeolocation(): UseGeolocationResult {
   const [state, setState] = useState<UseGeolocationState>({
@@ -58,22 +65,14 @@ export function useGeolocation(): UseGeolocationResult {
   });
 
   const requestIdRef = useRef(0);
-  const watchIdRef = useRef<number | null>(null);
-  const bestAccuracyRef = useRef(Infinity);
-  const stopTimeoutRef = useRef<number | null>(null);
+  const refineTimeoutIdsRef = useRef<number[]>([]);
 
-  const stopWatching = useCallback(() => {
-    if (watchIdRef.current !== null && typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-    }
-    watchIdRef.current = null;
-    if (stopTimeoutRef.current !== null) {
-      window.clearTimeout(stopTimeoutRef.current);
-      stopTimeoutRef.current = null;
-    }
+  const clearRefineTimeouts = useCallback(() => {
+    refineTimeoutIdsRef.current.forEach((id) => window.clearTimeout(id));
+    refineTimeoutIdsRef.current = [];
   }, []);
 
-  useEffect(() => stopWatching, [stopWatching]);
+  useEffect(() => clearRefineTimeouts, [clearRefineTimeouts]);
 
   const requestLocation = useCallback(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -81,27 +80,38 @@ export function useGeolocation(): UseGeolocationResult {
       return;
     }
 
-    stopWatching();
+    clearRefineTimeouts();
     const requestId = ++requestIdRef.current;
-    bestAccuracyRef.current = Infinity;
     setState((prev) => ({ ...prev, status: 'loading' }));
 
-    watchIdRef.current = navigator.geolocation.watchPosition(
+    navigator.geolocation.getCurrentPosition(
       (result) => {
         if (requestIdRef.current !== requestId) return;
-
-        // 더 정확한(정확도 반경이 더 작은) 값이 들어왔을 때만 갱신합니다 — 흔들리며 다시
-        // 부정확해지는 값으로 되돌아가지 않도록 하기 위함입니다.
-        if (result.coords.accuracy > bestAccuracyRef.current) return;
-        bestAccuracyRef.current = result.coords.accuracy;
-
         setState({
           position: { lat: result.coords.latitude, lng: result.coords.longitude },
           status: 'success',
           errorReason: null,
         });
 
-        if (result.coords.accuracy <= GOOD_ENOUGH_ACCURACY_METERS) stopWatching();
+        REFINE_DELAYS_MS.forEach((delay) => {
+          const timeoutId = window.setTimeout(() => {
+            if (requestIdRef.current !== requestId) return;
+            navigator.geolocation.getCurrentPosition(
+              (refined) => {
+                if (requestIdRef.current !== requestId) return;
+                setState({
+                  position: { lat: refined.coords.latitude, lng: refined.coords.longitude },
+                  status: 'success',
+                  errorReason: null,
+                });
+              },
+              // 재조회 실패는 조용히 무시합니다(이미 이전에 얻은 위치가 있음).
+              () => {},
+              FRESH_OPTIONS
+            );
+          }, delay);
+          refineTimeoutIdsRef.current.push(timeoutId);
+        });
       },
       (error) => {
         if (requestIdRef.current !== requestId) return;
@@ -110,9 +120,7 @@ export function useGeolocation(): UseGeolocationResult {
       },
       GEOLOCATION_OPTIONS
     );
-
-    stopTimeoutRef.current = window.setTimeout(stopWatching, MAX_WATCH_DURATION_MS);
-  }, [stopWatching]);
+  }, [clearRefineTimeouts]);
 
   return { ...state, requestLocation };
 }
