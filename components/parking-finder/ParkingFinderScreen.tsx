@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { KakaoMap, DAEJEON_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
+import { KakaoMap, SEOUL_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
 import { CurrentLocationButton } from '@/components/map/CurrentLocationButton';
 import { CongestionLegend } from '@/components/map/CongestionLegend';
 import { SearchAreaButton } from '@/components/map/SearchAreaButton';
@@ -55,7 +55,7 @@ export function ParkingFinderScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { parkingLots, status: lotsStatus, error: lotsError, refetch } = useParkingLots();
-  const { position: userLocation, status: geoStatus, errorReason, requestLocation } = useGeolocation();
+  const { position: userLocation, tentativePosition, status: geoStatus, errorReason, requestLocation } = useGeolocation();
   const parkingFilters = useParkingFilters(parkingLots);
   const { filteredLots } = parkingFilters;
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -239,7 +239,7 @@ export function ParkingFinderScreen() {
             <div className="min-w-0 flex-1">
               <SearchBar
                 parkingLots={visibleLots}
-                userLocation={referenceLocation ?? DAEJEON_CITY_HALL}
+                userLocation={referenceLocation ?? SEOUL_CITY_HALL}
                 onSelect={handleSelectLot}
                 onSelectPlace={handleSelectPlace}
                 placeholder="목적지나 주소를 입력하세요"
@@ -340,6 +340,7 @@ export function ParkingFinderScreen() {
           parkingLots={visibleLots}
           selectedLotId={selectedLotId}
           userLocation={userLocation}
+          tentativeUserLocation={tentativePosition}
           onSelectLot={handleSelectLot}
           onViewportChange={() => setShowSearchAreaButton(true)}
         />
@@ -356,7 +357,7 @@ export function ParkingFinderScreen() {
             ) : (
               <SearchBar
                 parkingLots={visibleLots}
-                userLocation={referenceLocation ?? DAEJEON_CITY_HALL}
+                userLocation={referenceLocation ?? SEOUL_CITY_HALL}
                 onSelect={handleSelectLot}
                 onSelectPlace={handleSelectPlace}
                 placeholder="목적지나 주소를 입력하세요"

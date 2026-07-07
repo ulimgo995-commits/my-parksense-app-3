@@ -128,3 +128,23 @@ export function createUserLocationElement(): HTMLDivElement {
 
   return root;
 }
+
+/**
+ * 아직 재조회로 검증되지 않은 "확인 중" 위치용 마커. 확정 마커(파란색, createUserLocationElement)와
+ * 일부러 다르게(회색 + 반투명) 만들어서, 정확한 값이 아닐 수 있다는 걸 시각적으로 구분해줍니다.
+ */
+export function createTentativeUserLocationElement(): HTMLDivElement {
+  const root = document.createElement('div');
+  root.className = 'relative flex h-4 w-4 items-center justify-center opacity-70';
+
+  const ring = document.createElement('span');
+  ring.className = 'absolute inline-flex h-full w-full animate-pulse-ring rounded-full bg-gray-400';
+
+  const dot = document.createElement('span');
+  dot.className = 'relative inline-flex h-4 w-4 rounded-full border-2 border-white bg-gray-400 shadow-floating';
+
+  root.appendChild(ring);
+  root.appendChild(dot);
+
+  return root;
+}

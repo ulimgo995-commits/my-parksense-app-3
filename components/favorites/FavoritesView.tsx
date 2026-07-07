@@ -42,7 +42,7 @@ function readLastViewedMap(): Record<string, string> {
 export function FavoritesView() {
   const { parkingLots } = useParkingLots();
   const { addedAtById, isFavorite, toggleFavorite, isLoaded } = useFavorites();
-  const { position: userLocation, status: geoStatus, requestLocation } = useGeolocation();
+  const { position: userLocation, tentativePosition, status: geoStatus, requestLocation } = useGeolocation();
   const { showToast } = useToast();
   const isDesktop = useIsDesktop();
 
@@ -236,6 +236,7 @@ export function FavoritesView() {
             parkingLots={congestionFilteredLots}
             selectedLotId={selectedLotId}
             userLocation={userLocation}
+            tentativeUserLocation={tentativePosition}
             onSelectLot={handleSelectLot}
           />
 

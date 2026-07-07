@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { KakaoMap, DAEJEON_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
+import { KakaoMap, SEOUL_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
 import { CurrentLocationButton } from '@/components/map/CurrentLocationButton';
 import { CongestionLegend } from '@/components/map/CongestionLegend';
 import { SearchBar } from '@/components/search/SearchBar';
@@ -28,7 +28,7 @@ interface StatBadge {
 export function LandingScreen() {
   const router = useRouter();
   const { parkingLots, status: lotsStatus } = useParkingLots();
-  const { position: userLocation, status: geoStatus, errorReason, requestLocation } = useGeolocation();
+  const { position: userLocation, tentativePosition, status: geoStatus, errorReason, requestLocation } = useGeolocation();
   const mapRef = useRef<KakaoMapHandle>(null);
   // null이면 아직 지도 뷰포트 기준 집계 전(최초 렌더 직후)이라는 뜻 — 이 경우엔 전체 목록으로 보여줍니다.
   const [visibleLotIds, setVisibleLotIds] = useState<string[] | null>(null);
@@ -113,7 +113,7 @@ export function LandingScreen() {
           ) : (
             <SearchBar
               parkingLots={parkingLots}
-              userLocation={userLocation ?? DAEJEON_CITY_HALL}
+              userLocation={userLocation ?? SEOUL_CITY_HALL}
               onSelect={goToParkingLot}
               onSelectPlace={goToPlace}
               placeholder="목적지나 주소를 입력하세요"
@@ -142,6 +142,7 @@ export function LandingScreen() {
           parkingLots={parkingLots}
           selectedLotId={null}
           userLocation={userLocation}
+          tentativeUserLocation={tentativePosition}
           onSelectLot={goToParkingLot}
           onViewportChange={handleViewportChange}
           onBoundsChanged={setVisibleLotIds}

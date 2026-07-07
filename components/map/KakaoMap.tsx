@@ -7,6 +7,7 @@ import { clusterLots } from '@/lib/kakao/clustering';
 import {
   createClusterElement,
   createParkingMarkerElement,
+  createTentativeUserLocationElement,
   createUserLocationElement,
   setParkingMarkerSelected,
   updateClusterElement,
@@ -19,8 +20,8 @@ import type { LatLng, ParkingLot } from '@/types/parking';
 import { MapLoadingSkeleton } from './MapLoadingSkeleton';
 import { MapErrorState } from './MapErrorState';
 
-/** 대전광역시청 - 위치 권한이 없거나 실패했을 때의 기본 지도 중심 */
-export const DAEJEON_CITY_HALL: LatLng = { lat: 36.3504, lng: 127.3845 };
+/** 서울특별시청 - 위치 권한이 없거나 실패했을 때의 기본 지도 중심 */
+export const SEOUL_CITY_HALL: LatLng = { lat: 37.5665, lng: 126.978 };
 const DEFAULT_LEVEL = 6;
 
 export interface KakaoMapHandle {
@@ -44,6 +45,12 @@ interface KakaoMapProps {
   parkingLots: ParkingLot[];
   selectedLotId: string | null;
   userLocation: LatLng | null;
+  /**
+   * 아직 검증되지 않은 최초 위치(useGeolocation의 tentativePosition). userLocation이 확정되기
+   * 전까지 "확인 중" 스타일의 흐릿한 점만 보여주는 용도이며, 카메라 이동에는 쓰이지 않습니다.
+   * userLocation이 채워지면 이 값과 무관하게 확정 마커가 그 자리를 대신합니다.
+   */
+  tentativeUserLocation?: LatLng | null;
   onSelectLot: (lot: ParkingLot) => void;
   /**
    * 사용자가 직접 지도를 드래그하거나 확대/축소했을 때 호출됩니다
@@ -78,7 +85,7 @@ interface ClusterEntry {
  * (Kakao Maps SDK 자체가 명령형 API이기 때문에 선언형으로 감싸는 것보다 훨씬 안정적입니다.)
  */
 export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function KakaoMap(
-  { parkingLots, selectedLotId, userLocation, onSelectLot, onViewportChange, onBoundsChanged },
+  { parkingLots, selectedLotId, userLocation, tentativeUserLocation, onSelectLot, onViewportChange, onBoundsChanged },
   ref
 ) {
   const { status, error } = useKakaoLoader();
@@ -87,6 +94,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   const markersRef = useRef<Map<string, MarkerEntry>>(new Map());
   const clusterOverlaysRef = useRef<Map<string, ClusterEntry>>(new Map());
   const userOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
+  const tentativeUserOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   const routeLineRef = useRef<kakao.maps.Polyline | null>(null);
   const routeEtaOverlayRef = useRef<kakao.maps.CustomOverlay | null>(null);
   // 사용자가 지도를 직접 드래그/확대·축소하면 true — 그 뒤로는 실시간 위치가 갱신돼도
@@ -282,7 +290,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     if (status !== 'success' || !containerRef.current || mapRef.current) return;
 
     const map = new window.kakao.maps.Map(containerRef.current, {
-      center: new window.kakao.maps.LatLng(DAEJEON_CITY_HALL.lat, DAEJEON_CITY_HALL.lng),
+      center: new window.kakao.maps.LatLng(SEOUL_CITY_HALL.lat, SEOUL_CITY_HALL.lng),
       level: DEFAULT_LEVEL,
     });
     mapRef.current = map;
@@ -369,6 +377,35 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       zIndex: 5,
     });
   }, [userLocation, status]);
+
+  // 4.5) "확인 중" 임시 위치 마커 동기화. 확정 위치(userLocation)가 생기면 그쪽 마커가 같은
+  // 자리를 대신하므로 임시 마커는 곧바로 지웁니다(카메라는 절대 이 값으로 움직이지 않습니다).
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || status !== 'success') return;
+
+    if (!tentativeUserLocation || userLocation) {
+      tentativeUserOverlayRef.current?.setMap(null);
+      tentativeUserOverlayRef.current = null;
+      return;
+    }
+
+    const position = new window.kakao.maps.LatLng(tentativeUserLocation.lat, tentativeUserLocation.lng);
+
+    if (tentativeUserOverlayRef.current) {
+      tentativeUserOverlayRef.current.setPosition(position);
+      return;
+    }
+
+    tentativeUserOverlayRef.current = new window.kakao.maps.CustomOverlay({
+      position,
+      content: createTentativeUserLocationElement(),
+      map,
+      yAnchor: 0.5,
+      xAnchor: 0.5,
+      zIndex: 4,
+    });
+  }, [tentativeUserLocation, userLocation, status]);
 
   // 5) 현재위치 → 선택된 주차장 경로선 + 도착 예상 시간 카드
   // (실제 도로 경로 API 대신 직선 거리 기반 근사치를 사용합니다.)
