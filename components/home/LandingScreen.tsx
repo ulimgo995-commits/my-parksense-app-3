@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { KakaoMap, DAEJEON_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
 import { SearchBar } from '@/components/search/SearchBar';
 import { Skeleton } from '@/components/common/Skeleton';
+import { LocationPermissionBanner } from '@/components/permission/LocationPermissionBanner';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useParkingLots } from '@/hooks/useParkingLots';
 import { getCongestionLevel } from '@/lib/parking/congestion';
@@ -24,10 +25,11 @@ interface StatBadge {
 export function LandingScreen() {
   const router = useRouter();
   const { parkingLots, status: lotsStatus } = useParkingLots();
-  const { position: userLocation, requestLocation } = useGeolocation();
+  const { position: userLocation, status: geoStatus, errorReason, requestLocation } = useGeolocation();
   const mapRef = useRef<KakaoMapHandle>(null);
   // null이면 아직 지도 뷰포트 기준 집계 전(최초 렌더 직후)이라는 뜻 — 이 경우엔 전체 목록으로 보여줍니다.
   const [visibleLotIds, setVisibleLotIds] = useState<string[] | null>(null);
+  const [isBannerDismissed, setIsBannerDismissed] = useState(false);
 
   useEffect(() => {
     requestLocation();
@@ -38,6 +40,12 @@ export function LandingScreen() {
     if (!userLocation) return;
     mapRef.current?.panTo(userLocation, 5);
   }, [userLocation]);
+
+  useEffect(() => {
+    if (geoStatus === 'error') setIsBannerDismissed(false);
+  }, [geoStatus, errorReason]);
+
+  const showPermissionBanner = geoStatus === 'error' && !isBannerDismissed;
 
   // 사용자가 지도를 직접 드래그/확대·축소하면 그 지역 기준으로 통계를 다시 계산합니다.
   const handleViewportChange = useCallback(() => {
@@ -129,6 +137,17 @@ export function LandingScreen() {
           onViewportChange={handleViewportChange}
           onBoundsChanged={setVisibleLotIds}
         />
+        {showPermissionBanner && errorReason && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex justify-center p-4">
+            <div className="pointer-events-auto w-full max-w-xl">
+              <LocationPermissionBanner
+                reason={errorReason}
+                onRetry={requestLocation}
+                onDismiss={() => setIsBannerDismissed(true)}
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
