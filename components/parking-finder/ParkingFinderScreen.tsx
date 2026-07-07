@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { KakaoMap, DAEJEON_CITY_HALL, type KakaoMapHandle } from '@/components/map/KakaoMap';
 import { CurrentLocationButton } from '@/components/map/CurrentLocationButton';
 import { CongestionLegend } from '@/components/map/CongestionLegend';
-import { SearchAreaButton } from '@/components/map/SearchAreaButton';
 import { SearchBar } from '@/components/search/SearchBar';
 import { FilterBar } from '@/components/search/FilterBar';
 import { BottomSheet } from '@/components/bottom-sheet/BottomSheet';
@@ -13,6 +12,7 @@ import { LocationPermissionBanner } from '@/components/permission/LocationPermis
 import { EmptyState } from '@/components/common/EmptyState';
 import { Button } from '@/components/common/Button';
 import { Skeleton } from '@/components/common/Skeleton';
+import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import { ParkingListItem } from '@/components/common/ParkingListItem';
 import { GridIcon, ParkingPinIcon, SearchIcon } from '@/components/common/icons';
 import { DEFAULT_RADIUS_KM } from '@/components/search/filterOptions';
@@ -63,9 +63,11 @@ export function ParkingFinderScreen() {
 
   const [selectedLotId, setSelectedLotId] = useState<string | null>(null);
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
-  const [showSearchAreaButton, setShowSearchAreaButton] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [radiusKm, setRadiusKm] = useState(DEFAULT_RADIUS_KM);
+  // 사이드바 필터 칩과 지도 위 토글이 같은 상태를 공유합니다(참고 디자인에 둘 다 있음).
+  // 실제로 걸러낼 데이터가 없어 켜고 끄는 것 외의 동작은 없습니다.
+  const [isRealtimeOnly, setIsRealtimeOnly] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>('recommended');
   const [mobileView, setMobileView] = useState<MobileView>('map');
   const mapRef = useRef<KakaoMapHandle>(null);
@@ -119,7 +121,6 @@ export function ParkingFinderScreen() {
   const handleSelectLot = useCallback(
     (lot: ParkingLot) => {
       setSelectedLotId(lot.id);
-      setShowSearchAreaButton(false);
       setMobileView('map');
       mapRef.current?.panTo({ lat: lot.lat, lng: lot.lng }, 4);
       if (isDesktop) {
@@ -131,7 +132,6 @@ export function ParkingFinderScreen() {
 
   const handleSelectPlace = useCallback((place: PlaceResult) => {
     setSelectedLotId(null);
-    setShowSearchAreaButton(false);
     setMobileView('map');
     mapRef.current?.panTo({ lat: place.lat, lng: place.lng }, 5);
     mapRef.current?.refreshVisibleArea();
@@ -194,7 +194,6 @@ export function ParkingFinderScreen() {
     const visibleIds = mapRef.current?.getVisibleLotIds() ?? [];
     const visibleCount = visibleLots.filter((lot) => visibleIds.includes(lot.id)).length;
     mapRef.current?.refreshVisibleArea();
-    setShowSearchAreaButton(false);
     showToast(
       visibleCount > 0 ? `이 지역에 주차장 ${visibleCount}곳이 있어요` : '이 지역에는 표시할 주차장이 없어요'
     );
@@ -249,6 +248,8 @@ export function ParkingFinderScreen() {
               onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
               radiusKm={radiusKm}
               onSetRadiusKm={setRadiusKm}
+              isRealtimeOnly={isRealtimeOnly}
+              onToggleRealtimeOnly={() => setIsRealtimeOnly((prev) => !prev)}
             />
           </div>
         )}
@@ -322,7 +323,6 @@ export function ParkingFinderScreen() {
           selectedLotId={selectedLotId}
           userLocation={userLocation}
           onSelectLot={handleSelectLot}
-          onViewportChange={() => setShowSearchAreaButton(true)}
         />
 
         {/*
@@ -352,6 +352,8 @@ export function ParkingFinderScreen() {
                 onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
                 radiusKm={radiusKm}
                 onSetRadiusKm={setRadiusKm}
+                isRealtimeOnly={isRealtimeOnly}
+                onToggleRealtimeOnly={() => setIsRealtimeOnly((prev) => !prev)}
               />
             </div>
           )}
@@ -360,17 +362,34 @@ export function ParkingFinderScreen() {
               <LocationPermissionBanner reason={errorReason} onRetry={requestLocation} onDismiss={() => setIsBannerDismissed(true)} />
             </div>
           )}
-          {showSearchAreaButton && (
-            <div className="pointer-events-auto">
-              <SearchAreaButton onClick={handleSearchThisArea} />
-            </div>
-          )}
+        </div>
+
+        {/*
+          지도 우측 상단 컨트롤 — 참고 디자인처럼 항상 떠 있는 실시간 토글 + 지도 범위(재검색) 버튼.
+          모바일은 검색창/필터 오버레이가 이미 상단 전체를 차지하므로 데스크톱에서만 보여줍니다.
+        */}
+        <div className="pointer-events-none absolute right-4 top-4 z-30 hidden items-center gap-2 md:right-6 md:flex">
+          <div className="pointer-events-auto flex h-10 items-center rounded-full bg-white px-3 shadow-floating">
+            <ToggleSwitch
+              checked={isRealtimeOnly}
+              onChange={() => setIsRealtimeOnly((prev) => !prev)}
+              label="실시간 주차장만 보기"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleSearchThisArea}
+            className="pointer-events-auto flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 text-xs font-semibold text-text-primary shadow-floating transition-colors hover:bg-gray-50"
+          >
+            <GridIcon size={14} />
+            지도 범위
+          </button>
         </div>
 
         <div
-          className={`pointer-events-none absolute left-6 z-30 hidden transition-[bottom] duration-300 md:block ${legendBottomClass}`}
+          className={`pointer-events-none absolute inset-x-0 z-30 hidden justify-center transition-[bottom] duration-300 md:flex ${legendBottomClass}`}
         >
-          <CongestionLegend />
+          <CongestionLegend variant="bar" />
         </div>
 
         <CurrentLocationButton

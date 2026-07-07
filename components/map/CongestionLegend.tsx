@@ -15,8 +15,33 @@ const DOT_COLOR_CLASS: Record<CongestionLevel, string> = {
   full: 'bg-full',
 };
 
-/** 지도 좌측 하단에 떠 있는 혼잡도 색상 범례 카드 (디자인: 흰 카드 + 항목별 비율 설명) */
-export function CongestionLegend() {
+interface CongestionLegendProps {
+  /** 'card'(기본): 세로 카드 + 비율 설명. 'bar': 지도 하단에 가로로 얇게 펼치는 형태. */
+  variant?: 'card' | 'bar';
+}
+
+/** 지도 위에 떠 있는 혼잡도 색상 범례. */
+export function CongestionLegend({ variant = 'card' }: CongestionLegendProps) {
+  if (variant === 'bar') {
+    return (
+      <div className="flex items-center gap-4 rounded-2xl bg-white/95 px-4 py-2.5 shadow-floating backdrop-blur-sm">
+        {CONGESTION_LEVELS.map((level) => {
+          const meta = getCongestionMetaByLevel(level);
+          return (
+            <span key={level} className="flex items-center gap-1.5 whitespace-nowrap text-xs text-text-primary">
+              <span className={`inline-block h-2.5 w-2.5 rounded-full ${DOT_COLOR_CLASS[level]}`} />
+              {meta.label}
+            </span>
+          );
+        })}
+        <span className="flex items-center gap-1.5 whitespace-nowrap text-xs text-text-secondary">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-gray-300" />
+          정보 없음
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="w-44 rounded-2xl bg-white/95 p-3 shadow-floating backdrop-blur-sm">
       <p className="mb-2 text-xs font-semibold text-text-primary">주차 가능 비율</p>

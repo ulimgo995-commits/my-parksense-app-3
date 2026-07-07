@@ -46,25 +46,38 @@ interface FilterBarProps extends UseParkingFiltersResult {
   /** 제공되면 검색 결과 반경(km) 칩이 함께 표시됩니다. */
   radiusKm?: number;
   onSetRadiusKm?: (km: number) => void;
+  /**
+   * "실시간 주차만" 토글 상태. 지도 위 같은 이름의 토글과 상태를 공유하도록 상위에서 관리합니다.
+   * 우리 데이터는 전부 실시간 정보라 실제로 걸러낼 대상이 없어, 켜고 끄는 것 외의 동작은 없는
+   * 참고 디자인 재현용 토글입니다.
+   */
+  isRealtimeOnly: boolean;
+  onToggleRealtimeOnly: () => void;
 }
 
 /**
  * 검색창 아래 가로 스크롤 필터 행. 디자인 참고 이미지의 필터 칩 UI를 구현합니다.
  * 각 칩은 개별 드롭다운으로도, "필터" 버튼을 통해 통합 패널로도 조작할 수 있습니다.
  */
-export function FilterBar({ favoritesOnly, onToggleFavoritesOnly, radiusKm, onSetRadiusKm, ...props }: FilterBarProps) {
+export function FilterBar({
+  favoritesOnly,
+  onToggleFavoritesOnly,
+  radiusKm,
+  onSetRadiusKm,
+  isRealtimeOnly,
+  onToggleRealtimeOnly,
+  ...props
+}: FilterBarProps) {
   const { filters, toggleCongestionLevel, selectAllCongestionLevels, setMaxFee, setHoursMode, setType, resetFilters, activeFilterCount } =
     props;
   const [isModalOpen, setIsModalOpen] = useState(false);
-  // 우리 데이터는 전부 실시간 정보라 실제로 걸러낼 대상이 없어 동작은 없는, 참고 디자인 재현용 토글입니다.
-  const [isRealtimeOnly, setIsRealtimeOnly] = useState(true);
 
   return (
     <>
       <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
         <button
           type="button"
-          onClick={() => setIsRealtimeOnly((prev) => !prev)}
+          onClick={onToggleRealtimeOnly}
           aria-pressed={isRealtimeOnly}
           className={`flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-semibold shadow-card transition-colors ${
             isRealtimeOnly

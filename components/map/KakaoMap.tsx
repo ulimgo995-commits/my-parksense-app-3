@@ -265,6 +265,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       level: DEFAULT_LEVEL,
     });
     mapRef.current = map;
+    map.addControl(new window.kakao.maps.ZoomControl(), window.kakao.maps.ControlPosition.RIGHT);
 
     const handleResize = () => map.relayout();
     window.addEventListener('resize', handleResize);

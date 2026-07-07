@@ -48,6 +48,22 @@ declare namespace kakao.maps {
       paddingLeft?: number
     ): void;
     relayout(): void;
+    addControl(control: ZoomControl, position: ControlPosition): void;
+  }
+
+  export enum ControlPosition {
+    TOP = 1,
+    TOPLEFT,
+    TOPRIGHT,
+    LEFT,
+    RIGHT,
+    BOTTOMLEFT,
+    BOTTOM,
+    BOTTOMRIGHT,
+  }
+
+  export class ZoomControl {
+    constructor();
   }
 
   export interface CustomOverlayOptions {
