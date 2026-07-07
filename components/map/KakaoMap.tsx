@@ -303,9 +303,16 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   // 전이라 아무 효과 없이 무시되는 경우가 있었습니다(이후에도 재시도되지 않아 항상 기본 위치에
   // 머무는 버그의 원인). status와 userLocation 둘 다 의존성에 두어 어느 쪽이 늦게 도착해도
   // 안전하게 한 번은 실행되도록 합니다.
+  //
+  // userLocation은 위치 정확도가 개선될 때마다(useGeolocation의 지연 재조회) 이후에도 여러 번
+  // 바뀔 수 있는데, 이미 사용자가 특정 주차장을 선택해 그쪽을 보고 있다면 그 화면을 방해하면
+  // 안 됩니다("주차장 선택 후 몇 초 뒤 엉뚱한 곳으로 지도가 이동하는" 버그의 원인이었습니다).
+  // 그래서 (a) 한 번 중심 이동을 실행하면 다시는 하지 않고, (b) 선택된 주차장이 있는 동안에는
+  // 아예 실행하지 않되 그 시점을 "이미 사용함"으로 처리하지 않아 선택 해제 후 재시도될 여지를 둡니다.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || status !== 'success' || !userLocation || didCenterOnUserLocationRef.current) return;
+    if (selectedLotIdRef.current !== null) return;
     didCenterOnUserLocationRef.current = true;
     const latlng = new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng);
     pendingActionRef.current = 'autoSync';

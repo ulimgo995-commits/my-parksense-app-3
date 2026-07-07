@@ -69,8 +69,6 @@ export function ParkingFinderScreen() {
   const [sortMode, setSortMode] = useState<SortMode>('recommended');
   const [mobileView, setMobileView] = useState<MobileView>('map');
   const mapRef = useRef<KakaoMapHandle>(null);
-  const selectedLotIdRef = useRef(selectedLotId);
-  selectedLotIdRef.current = selectedLotId;
   const didHandleQueryRef = useRef(false);
 
   useEffect(() => {
@@ -78,13 +76,10 @@ export function ParkingFinderScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!userLocation) return;
-    mapRef.current?.panTo(userLocation, 5);
-    if (isDesktop && selectedLotIdRef.current !== null) {
-      mapRef.current?.panByPixels(0, DESKTOP_PANEL_OFFSET_PX);
-    }
-  }, [userLocation, isDesktop]);
+  // 최초 위치로 지도를 자동 중심 이동시키는 로직은 KakaoMap 내부(선택된 주차장이 있으면
+  // 건드리지 않음)에서 처리합니다. 여기서 별도로 처리하면, 위치 정확도가 나중에 개선되며
+  // userLocation이 다시 바뀔 때마다 이미 선택해서 보고 있는 주차장을 무시하고 지도가
+  // 엉뚱하게 다시 움직이는 문제가 있었습니다.
 
   useEffect(() => {
     if (geoStatus === 'error') setIsBannerDismissed(false);

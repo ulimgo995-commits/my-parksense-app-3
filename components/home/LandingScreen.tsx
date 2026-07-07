@@ -36,10 +36,9 @@ export function LandingScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!userLocation) return;
-    mapRef.current?.panTo(userLocation, 5);
-  }, [userLocation]);
+  // 최초 위치로 지도를 자동 중심 이동시키는 로직은 KakaoMap 내부에서 한 번만 실행합니다.
+  // 여기서 별도로 처리하면, 위치 정확도가 나중에 개선되며 userLocation이 다시 바뀔 때마다
+  // 사용자가 직접 이동/확대해 둔 지도를 무시하고 다시 움직이는 문제가 있었습니다.
 
   useEffect(() => {
     if (geoStatus === 'error') setIsBannerDismissed(false);
