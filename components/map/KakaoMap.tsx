@@ -24,7 +24,12 @@ export const DAEJEON_CITY_HALL: LatLng = { lat: 36.3504, lng: 127.3845 };
 const DEFAULT_LEVEL = 6;
 
 export interface KakaoMapHandle {
-  panTo: (position: LatLng, level?: number) => void;
+  /**
+   * offsetPixelsY를 주면, 그 위치를 정확히 중앙에 두는 대신 화면 픽셀 기준으로 그만큼
+   * 아래로 내린 지점을 중심으로 이동합니다 (결과적으로 목표 위치는 화면에서 위로 그만큼
+   * 올라와 보입니다) — 데스크톱 하단 상세 패널에 마커가 가리지 않도록 하는 용도입니다.
+   */
+  panTo: (position: LatLng, level?: number, offsetPixelsY?: number) => void;
   /** 지도 중심을 화면 픽셀 단위로 이동합니다 (데스크톱 사이드 패널에 가려지지 않도록 보정하는 용도). */
   panByPixels: (dx: number, dy: number) => void;
   /** 현재 지도 화면(뷰포트) 안에 있는 주차장 id 목록을 반환합니다 ("이 지역 검색" 기능용). */
@@ -221,7 +226,7 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   useImperativeHandle(
     ref,
     () => ({
-      panTo: (position, level) => {
+      panTo: (position, level, offsetPixelsY) => {
         const map = mapRef.current;
         if (!map || !window.kakao) return;
         const latlng = new window.kakao.maps.LatLng(position.lat, position.lng);
@@ -234,7 +239,21 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         if (level !== undefined) {
           map.setLevel(level, { anchor: latlng, animate: true });
         }
-        map.panTo(latlng);
+        // offsetPixelsY가 있으면(데스크톱 상세 패널에 가리지 않도록) 목표 좌표를 화면 픽셀
+        // 기준으로 미리 보정한 뒤 그 지점 하나로 이동합니다. 예전에는 panTo(목표) 호출 직후
+        // 별도로 panByPixels()를 이어서 호출했는데, panTo가 애니메이션(비동기)이라 그 보정이
+        // "아직 이전 위치에서 이동 중이던 지도"를 기준으로 적용되어 매번 다른 위치로 어긋나며
+        // 누적됐습니다(마커를 클릭할수록 점점 위로 밀려 올라가던 원인). 이제 두 동작을 하나의
+        // panTo 호출로 합쳐 항상 정확히 같은 최종 위치에 도착하도록 했습니다.
+        let target = latlng;
+        if (offsetPixelsY) {
+          const projection = map.getProjection();
+          const point = projection.containerPointFromCoords(latlng);
+          target = projection.coordsFromContainerPoint(
+            new window.kakao.maps.Point(point.x, point.y + offsetPixelsY)
+          );
+        }
+        map.panTo(target);
       },
       panByPixels: (dx, dy) => {
         mapRef.current?.panBy(dx, dy);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useBottomSheet } from '@/hooks/useBottomSheet';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { CloseIcon } from '@/components/common/icons';
@@ -14,6 +14,12 @@ interface BottomSheetProps {
   onClose: () => void;
   isFavorite: boolean;
   onToggleFavorite: (lot: ParkingLot) => void;
+  /**
+   * 데스크톱 카드가 실제로 렌더링된 높이(px)가 바뀔 때마다 알려줍니다. 카드 높이는
+   * `max-h-[55vh]`일 뿐 내용에 따라 그보다 훨씬 작을 수 있어서, 이 위에 떠 있는
+   * 다른 요소(혼잡도 범례 등)를 "카드 바로 위"에 붙이려면 실제 높이를 알아야 합니다.
+   */
+  onDesktopHeightChange?: (heightPx: number) => void;
 }
 
 const SHEET_HEIGHT_VH = 88;
@@ -30,11 +36,12 @@ const COLLAPSED_TRANSLATE_VH = SHEET_HEIGHT_VH - COLLAPSED_VISIBLE_VH;
  * 즐겨찾기 상태는 상위 페이지 컴포넌트에서 단일 useFavorites 인스턴스로 관리하여
  * Bottom Sheet / 내 주변 / 즐겨찾기 화면 간 상태가 항상 일치하도록 합니다.
  */
-export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite }: BottomSheetProps) {
+export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite, onDesktopHeightChange }: BottomSheetProps) {
   const isDesktop = useIsDesktop();
   const isOpen = lot !== null;
   const [displayedLot, setDisplayedLot] = useState<ParkingLot | null>(lot);
   const { snap, setSnap, isDragging, dragOffset, dragHandlers } = useBottomSheet({ isOpen, onClose });
+  const desktopPanelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (lot) setDisplayedLot(lot);
@@ -43,6 +50,23 @@ export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite }: Bott
   useEffect(() => {
     if (isOpen) setSnap('collapsed');
   }, [lot?.id, isOpen, setSnap]);
+
+  // 카드 내용(주차장이 바뀌거나 접기/펼치기)에 따라 실제 렌더링 높이가 계속 바뀌므로
+  // ResizeObserver로 매번 최신 값을 상위에 전달합니다. 닫혀 있을 때는 0으로 알립니다.
+  useLayoutEffect(() => {
+    if (!onDesktopHeightChange) return;
+    if (!isDesktop || !isOpen) {
+      onDesktopHeightChange(0);
+      return;
+    }
+    const node = desktopPanelRef.current;
+    if (!node) return;
+    const report = () => onDesktopHeightChange(node.offsetHeight);
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [isDesktop, isOpen, displayedLot, onDesktopHeightChange]);
 
   if (!displayedLot) return null;
 
@@ -57,6 +81,7 @@ export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite }: Bott
     return (
       <div className="pointer-events-none absolute inset-x-4 bottom-4 z-40 flex justify-center">
         <div
+          ref={desktopPanelRef}
           className={`max-h-[55vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-floating transition-transform duration-300 ease-out ${
             isOpen ? 'pointer-events-auto translate-y-0' : 'pointer-events-none translate-y-[120%]'
           }`}

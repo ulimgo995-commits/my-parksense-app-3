@@ -75,6 +75,8 @@ export function ParkingFinderScreen() {
   const [isRealtimeOnly, setIsRealtimeOnly] = useState(true);
   const [sortMode, setSortMode] = useState<SortMode>('recommended');
   const [mobileView, setMobileView] = useState<MobileView>('map');
+  // 데스크톱 하단 상세 카드의 실제 렌더링 높이(px) — 혼잡도 범례를 카드 바로 위에 붙이는 데 사용합니다.
+  const [desktopSheetHeightPx, setDesktopSheetHeightPx] = useState(0);
   const mapRef = useRef<KakaoMapHandle>(null);
   const didHandleQueryRef = useRef(false);
 
@@ -131,10 +133,7 @@ export function ParkingFinderScreen() {
       setSelectedLotId(lot.id);
       setShowSearchAreaButton(false);
       setMobileView('map');
-      mapRef.current?.panTo({ lat: lot.lat, lng: lot.lng }, 4);
-      if (isDesktop) {
-        mapRef.current?.panByPixels(0, DESKTOP_PANEL_OFFSET_PX);
-      }
+      mapRef.current?.panTo({ lat: lot.lat, lng: lot.lng }, 4, isDesktop ? DESKTOP_PANEL_OFFSET_PX : undefined);
     },
     [isDesktop]
   );
@@ -180,10 +179,7 @@ export function ParkingFinderScreen() {
     // "내 위치" 버튼은 검색해둔 목적지 기준을 벗어나 다시 내 실시간 위치 기준으로 돌아갑니다.
     setSearchOrigin(null);
     if (userLocation) {
-      mapRef.current?.panTo(userLocation, 5);
-      if (isDesktop && isSheetOpen) {
-        mapRef.current?.panByPixels(0, DESKTOP_PANEL_OFFSET_PX);
-      }
+      mapRef.current?.panTo(userLocation, 5, isDesktop && isSheetOpen ? DESKTOP_PANEL_OFFSET_PX : undefined);
     }
     requestLocation();
   }, [requestLocation, userLocation, isDesktop, isSheetOpen]);
@@ -219,7 +215,12 @@ export function ParkingFinderScreen() {
   const locationButtonBottomClass = isSheetOpen
     ? 'bottom-[calc(42vh+16px)] md:bottom-[calc(55vh+16px)]'
     : 'bottom-24 md:bottom-6';
-  const legendBottomClass = isSheetOpen ? 'bottom-6 md:bottom-[calc(55vh+16px)]' : 'bottom-20';
+  // 범례는 데스크톱 전용(md:flex)이라, 열려 있을 때는 카드의 실제 렌더링 높이 바로 위(16px 간격)에
+  // 붙입니다. 카드 자체가 화면 하단에서 16px(bottom-4) 띄워져 있어 그만큼도 함께 더해줍니다.
+  // (예전엔 카드의 max-h인 55vh를 기준으로 계산했는데, 카드 내용이 그보다 짧으면 실제 카드 위로
+  // 한참 뜬 채 허공에 떠 있는 문제가 있었습니다.)
+  const legendBottomClass = isSheetOpen ? 'bottom-6' : 'bottom-20';
+  const legendBottomStyle = isSheetOpen ? { bottom: desktopSheetHeightPx + 16 + 16 } : undefined;
   const showMapPane = isDesktop || mobileView === 'map';
 
   const sidebarList = (
@@ -404,6 +405,7 @@ export function ParkingFinderScreen() {
 
         <div
           className={`pointer-events-none absolute inset-x-0 z-30 hidden justify-center transition-[bottom] duration-300 md:flex ${legendBottomClass}`}
+          style={legendBottomStyle}
         >
           <CongestionLegend variant="bar" />
         </div>
@@ -424,7 +426,13 @@ export function ParkingFinderScreen() {
           목록 보기
         </button>
 
-        <BottomSheet lot={selectedLot} onClose={handleCloseSheet} isFavorite={selectedLot ? isFavorite(selectedLot.id) : false} onToggleFavorite={handleToggleFavorite} />
+        <BottomSheet
+          lot={selectedLot}
+          onClose={handleCloseSheet}
+          isFavorite={selectedLot ? isFavorite(selectedLot.id) : false}
+          onToggleFavorite={handleToggleFavorite}
+          onDesktopHeightChange={setDesktopSheetHeightPx}
+        />
 
         {lotsStatus === 'error' && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm">

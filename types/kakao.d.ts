@@ -49,6 +49,7 @@ declare namespace kakao.maps {
     ): void;
     relayout(): void;
     addControl(control: ZoomControl, position: ControlPosition): void;
+    getProjection(): Projection;
   }
 
   export enum ControlPosition {
@@ -93,6 +94,15 @@ declare namespace kakao.maps {
 
   export class Point {
     constructor(x: number, y: number);
+    x: number;
+    y: number;
+  }
+
+  export interface Projection {
+    /** 지도 좌표를 지도 컨테이너 기준 화면 픽셀 좌표로 변환합니다. */
+    containerPointFromCoords(coords: LatLng): Point;
+    /** 지도 컨테이너 기준 화면 픽셀 좌표를 지도 좌표로 변환합니다. */
+    coordsFromContainerPoint(point: Point): LatLng;
   }
 
   export class MarkerImage {
