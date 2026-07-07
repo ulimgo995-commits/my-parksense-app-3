@@ -100,6 +100,11 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
   // 사용자가 지도를 직접 드래그/확대·축소하면 true — 그 뒤로는 실시간 위치가 갱신돼도
   // 자동으로 지도를 다시 옮기지 않습니다(사용자가 보고 있는 화면을 방해하지 않기 위함).
   const hasUserMovedMapRef = useRef(false);
+  // 확정 위치(userLocation)로 카메라를 자동으로 "한 번" 이동시켰는지 여부. 재조회로 위치가
+  // 몇 초 간격으로 계속 미세하게 갱신되는데, 그때마다 카메라가 다시 팬+줌 하면 "기본 화면 →
+  // 어중간한 위치 → 진짜 위치"처럼 여러 번 튀어 보입니다. 그래서 최초 도착 이후에는 카메라는
+  // 가만히 두고, 점(마커) 위치만 조용히 갱신합니다(아래 "현재 위치 마커 동기화" 효과).
+  const hasCenteredOnUserLocationRef = useRef(false);
   const onSelectLotRef = useRef(onSelectLot);
   const onViewportChangeRef = useRef(onViewportChange);
   const onBoundsChangedRef = useRef(onBoundsChanged);
@@ -328,15 +333,24 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     };
   }, [status, syncMarkers]);
 
-  // 1.5) 실시간 위치가 (재조회로 정확도가 개선되며) 바뀔 때마다 지도 중심을 그 위치로 계속
-  // 따라가도록 합니다. 최초 한 번만 이동시키면, 브라우저가 처음엔 부정확한 위치를 주고 몇 초 뒤
-  // 정확한 값으로 갱신해도 지도가 그 갱신을 반영하지 못해 "현재 위치" 버튼을 눌러야만 정확한
-  // 위치로 이동하는 문제가 있었습니다. 다만 사용자가 이미 지도를 직접 움직였거나 특정 주차장을
-  // 선택해 그쪽을 보고 있다면 그 화면을 방해하면 안 되므로 그 두 경우엔 따라가지 않습니다.
+  // 1.5) 확정 위치(userLocation)가 처음 생기면 지도 중심을 그 위치로 "한 번만" 이동합니다.
+  // useGeolocation이 재조회로 몇 초 간격으로 값을 계속 갱신하는데, 그때마다 카메라가 다시
+  // 팬+줌 애니메이션을 하면 "기본 화면 → 어중간한 위치 → 진짜 위치"처럼 여러 번 튀어 보입니다
+  // (재조회 결과가 서로 조금씩 달라서). 그래서 최초 도착 이후로는 카메라를 건드리지 않고,
+  // 점 자체의 위치만 아래 "현재 위치 마커 동기화" 효과에서 조용히 갱신합니다. 사용자가 이미
+  // 지도를 직접 움직였거나 특정 주차장을 선택해 그쪽을 보고 있다면 애초에 따라가지 않습니다.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || status !== 'success' || !userLocation) return;
+    if (!map || status !== 'success') return;
+    if (!userLocation) {
+      // 위치를 다시 못 받아오는 상태가 되면, 나중에 새로 확정될 때 다시 한 번은 자동으로
+      // 이동할 수 있도록 리셋해둡니다.
+      hasCenteredOnUserLocationRef.current = false;
+      return;
+    }
     if (selectedLotIdRef.current !== null || hasUserMovedMapRef.current) return;
+    if (hasCenteredOnUserLocationRef.current) return;
+    hasCenteredOnUserLocationRef.current = true;
     const latlng = new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng);
     pendingActionRef.current = 'autoSync';
     map.setLevel(5, { anchor: latlng, animate: true });
