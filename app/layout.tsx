@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { GeolocationProvider } from '@/components/common/GeolocationProvider';
 import { ToastProvider } from '@/components/common/ToastProvider';
 import { TopNavBar } from '@/components/navigation/TopNavBar';
 import './globals.css';
@@ -27,12 +28,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans antialiased">
-        <ToastProvider>
-          <div className="flex h-dvh flex-col overflow-hidden">
-            <TopNavBar />
-            <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
-          </div>
-        </ToastProvider>
+        <GeolocationProvider>
+          <ToastProvider>
+            <div className="flex h-dvh flex-col overflow-hidden">
+              <TopNavBar />
+              <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
+            </div>
+          </ToastProvider>
+        </GeolocationProvider>
       </body>
     </html>
   );

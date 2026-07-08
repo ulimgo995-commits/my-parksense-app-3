@@ -9,7 +9,7 @@ import { SearchBar } from '@/components/search/SearchBar';
 import { Skeleton } from '@/components/common/Skeleton';
 import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import { LocationPermissionBanner } from '@/components/permission/LocationPermissionBanner';
-import { useGeolocation } from '@/hooks/useGeolocation';
+import { useSharedGeolocation } from '@/components/common/GeolocationProvider';
 import { useParkingLots } from '@/hooks/useParkingLots';
 import { getCongestionLevel } from '@/lib/parking/congestion';
 import { formatNumber } from '@/utils/format';
@@ -28,7 +28,7 @@ interface StatBadge {
 export function LandingScreen() {
   const router = useRouter();
   const { parkingLots, status: lotsStatus } = useParkingLots();
-  const { position: userLocation, tentativePosition, status: geoStatus, errorReason, requestLocation } = useGeolocation();
+  const { position: userLocation, tentativePosition, status: geoStatus, errorReason, requestLocation } = useSharedGeolocation();
   const mapRef = useRef<KakaoMapHandle>(null);
   // null이면 아직 지도 뷰포트 기준 집계 전(최초 렌더 직후)이라는 뜻 — 이 경우엔 전체 목록으로 보여줍니다.
   const [visibleLotIds, setVisibleLotIds] = useState<string[] | null>(null);
@@ -36,10 +36,9 @@ export function LandingScreen() {
   // 실제로 걸러낼 데이터가 없어 켜고 끄는 것 외의 동작은 없는, 참고 디자인 재현용 토글입니다.
   const [isRealtimeOnly, setIsRealtimeOnly] = useState(true);
 
-  useEffect(() => {
-    requestLocation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 위치 조회 자체는 app/layout.tsx의 GeolocationProvider가 앱 전체에서 한 번만 트리거합니다.
+  // 여기서 또 requestLocation()을 호출하면 이 페이지로 올 때마다 새로 조회하게 되어, 이미 확정된
+  // (정확할 수도 있는) 값을 버리고 다시 운에 맡기게 되는 문제가 있었습니다.
 
   // 최초 위치로 지도를 자동 중심 이동시키는 로직은 KakaoMap 내부에서 한 번만 실행합니다.
   // 여기서 별도로 처리하면, 위치 정확도가 나중에 개선되며 userLocation이 다시 바뀔 때마다

@@ -17,7 +17,7 @@ import { ToggleSwitch } from '@/components/common/ToggleSwitch';
 import { ParkingListItem } from '@/components/common/ParkingListItem';
 import { GridIcon, ParkingPinIcon, SearchIcon } from '@/components/common/icons';
 import { DEFAULT_RADIUS_KM } from '@/components/search/filterOptions';
-import { useGeolocation } from '@/hooks/useGeolocation';
+import { useSharedGeolocation } from '@/components/common/GeolocationProvider';
 import { useParkingLots } from '@/hooks/useParkingLots';
 import { useParkingFilters } from '@/hooks/useParkingFilters';
 import { useFavorites } from '@/hooks/useFavorites';
@@ -55,7 +55,7 @@ export function ParkingFinderScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { parkingLots, status: lotsStatus, error: lotsError, refetch } = useParkingLots();
-  const { position: userLocation, tentativePosition, status: geoStatus, errorReason, requestLocation } = useGeolocation();
+  const { position: userLocation, tentativePosition, status: geoStatus, errorReason, requestLocation } = useSharedGeolocation();
   const parkingFilters = useParkingFilters(parkingLots);
   const { filteredLots } = parkingFilters;
   const { isFavorite, toggleFavorite } = useFavorites();
@@ -80,10 +80,9 @@ export function ParkingFinderScreen() {
   const mapRef = useRef<KakaoMapHandle>(null);
   const didHandleQueryRef = useRef(false);
 
-  useEffect(() => {
-    requestLocation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // 위치 조회 자체는 app/layout.tsx의 GeolocationProvider가 앱 전체에서 한 번만 트리거합니다.
+  // 여기서 또 requestLocation()을 호출하면 이 페이지로 올 때마다 새로 조회하게 되어, 이미 확정된
+  // (정확할 수도 있는) 값을 버리고 다시 운에 맡기게 되는 문제가 있었습니다.
 
   // 최초 위치로 지도를 자동 중심 이동시키는 로직은 KakaoMap 내부(선택된 주차장이 있으면
   // 건드리지 않음)에서 처리합니다. 여기서 별도로 처리하면, 위치 정확도가 나중에 개선되며

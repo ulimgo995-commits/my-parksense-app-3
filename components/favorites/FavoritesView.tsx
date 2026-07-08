@@ -11,7 +11,7 @@ import { Spinner } from '@/components/common/Spinner';
 import { BellIcon, GridIcon, InfoIcon, StarIcon } from '@/components/common/icons';
 import { CONGESTION_LEVELS, getCongestionLevel, getCongestionMetaByLevel } from '@/lib/parking/congestion';
 import { useFavorites } from '@/hooks/useFavorites';
-import { useGeolocation } from '@/hooks/useGeolocation';
+import { useSharedGeolocation } from '@/components/common/GeolocationProvider';
 import { useParkingLots } from '@/hooks/useParkingLots';
 import { useToast } from '@/hooks/useToast';
 import { useIsDesktop } from '@/hooks/useMediaQuery';
@@ -42,7 +42,7 @@ function readLastViewedMap(): Record<string, string> {
 export function FavoritesView() {
   const { parkingLots } = useParkingLots();
   const { addedAtById, isFavorite, toggleFavorite, isLoaded } = useFavorites();
-  const { position: userLocation, tentativePosition, status: geoStatus, requestLocation } = useGeolocation();
+  const { position: userLocation, tentativePosition, status: geoStatus, requestLocation } = useSharedGeolocation();
   const { showToast } = useToast();
   const isDesktop = useIsDesktop();
 
@@ -54,10 +54,9 @@ export function FavoritesView() {
   const [lastViewedById, setLastViewedById] = useState<Record<string, string>>({});
   const mapRef = useRef<KakaoMapHandle>(null);
 
+  // 위치 조회 자체는 app/layout.tsx의 GeolocationProvider가 앱 전체에서 한 번만 트리거합니다.
   useEffect(() => {
-    requestLocation();
     setLastViewedById(readLastViewedMap());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const favoriteLots = useMemo(() => parkingLots.filter((lot) => isFavorite(lot.id)), [parkingLots, isFavorite]);
