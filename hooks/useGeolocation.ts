@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getDistanceInMeters } from '@/utils/distance';
 import type { AsyncStatus, LatLng } from '@/types/parking';
 
 export type GeolocationErrorReason = 'permission-denied' | 'position-unavailable' | 'timeout' | 'unsupported';
@@ -39,22 +38,21 @@ const FRESH_OPTIONS: PositionOptions = {
 /**
  * 최초 위치를 받은 뒤 이 시간(ms)들이 지날 때마다 한 번씩 더 재조회합니다. "현재 위치" 버튼을
  * 몇 초 뒤 눌렀을 때 정확한 값이 나오는 이유는 버튼 자체가 특별해서가 아니라, 그만큼 시간이 지나
- * OS의 Wi-Fi 기반 위치 확정이 끝났기 때문입니다. 그 타이밍을 자동으로 재현하기 위해 여러 시점에
- * 같은 방식으로 재조회합니다.
+ * OS의 Wi-Fi 기반 위치 확정이 끝났기 때문입니다.
  *
- * 예전엔 매번 최신 결과로 그냥 덮어썼는데, 그러면 재조회마다 서로 다른(때로는 완전히 동떨어진)
- * 값이 나와서 확정 위치가 여러 번 옮겨 다니는 것처럼 보였습니다. "정확도(accuracy) 필드로 비교"
- * 방식도 그 필드 자체가 신뢰할 수 없어 실패했었습니다(신뢰할 만한 값을 오히려 걸러내는 부작용).
- * 그래서 이번엔 기기가 스스로 보고하는 정확도를 아예 믿지 않고, 대신 "연속된 두 응답이 서로
- * 가까운 곳을 가리키는지"로 교차 검증합니다(AGREEMENT_THRESHOLD_METERS 이내) — 두 개의 독립된
- * 응답이 우연히 같은 오답에 동시에 도달할 가능성은 낮다고 보는 접근입니다. 합의가 나오는 즉시
- * 그 값을 `position`으로 확정하고 남은 재조회는 취소해, 카메라가 정확한 위치로 딱 한 번만
- * 이동하도록 합니다. 그 전까지는 최신 응답을 `tentativePosition`으로만 내려 "확인 중" 점을
- * 보여줍니다. 끝까지 합의가 안 나오면(마지막 시도까지도) 그래도 가장 최근 값을 확정합니다 —
- * 계속 'loading'으로 남겨두는 것보다는 낫습니다.
+ * 확정 위치(position)는 이 배열의 "마지막" 재조회 결과만 사용합니다. 중간 결과들(최초 응답,
+ * 3초/6초 뒤 재조회)은 tentativePosition으로만 내려 "확인 중" 점을 보여줄 뿐, 확정에는 반영하지
+ * 않습니다.
+ *
+ * 처음엔 "연속된 두 응답이 서로 가까운지"로 교차 검증해 더 빨리 확정해보려 했는데, 실제로
+ * 테스트해보니 오히려 역효과였습니다 — 초반 응답들(최초 + 3초 재조회)이 GPS가 아니라 IP/Wi-Fi
+ * 라우터 기반의 "동일하게 틀린" 위치(예: 실제 위치와 무관한 다른 시청)를 반복해서 반환하는
+ * 경우가 있어서, 그 둘이 서로 "합의"돼버려 진짜 위치가 나오기도 전에 틀린 값으로 확정돼버렸기
+ * 때문입니다. 그래서 지금은 조기 확정을 아예 포기하고, 매번 실제로 정확한 값이 나왔던 마지막
+ * 재조회(약 10초 뒤)까지 무조건 기다렸다가 그 값 하나로만 확정합니다 — 느리지만 "여러 번 튀거나
+ * 틀린 곳에서 멈추는" 것보다 "한 번에 정확한 곳으로 도착하는" 쪽이 우선입니다.
  */
 const REFINE_DELAYS_MS = [3000, 6000, 10000];
-const AGREEMENT_THRESHOLD_METERS = 500;
 
 function mapErrorReason(error: GeolocationPositionError): GeolocationErrorReason {
   switch (error.code) {
@@ -83,9 +81,9 @@ export function useGeolocation(): UseGeolocationResult {
 
   const requestIdRef = useRef(0);
   const refineTimeoutIdsRef = useRef<number[]>([]);
-  // 확정 전까지 지금까지 받은 응답들을 순서대로 쌓아둡니다 — 바로 직전 응답과 비교해
-  // "합의"가 나왔는지 판단하는 데 씁니다.
-  const candidatesRef = useRef<LatLng[]>([]);
+  // 마지막 재조회 자체가 실패했을 때 대신 확정할 수 있도록, 지금까지 받은 응답 중 가장 최근 것을
+  // 기억해둡니다.
+  const lastCandidateRef = useRef<LatLng | null>(null);
 
   const clearRefineTimeouts = useCallback(() => {
     refineTimeoutIdsRef.current.forEach((id) => window.clearTimeout(id));
@@ -102,21 +100,15 @@ export function useGeolocation(): UseGeolocationResult {
 
     clearRefineTimeouts();
     const requestId = ++requestIdRef.current;
-    candidatesRef.current = [];
+    lastCandidateRef.current = null;
     setState((prev) => ({ ...prev, tentativePosition: null, status: 'loading' }));
 
-    // 새 응답이 도착할 때마다 호출합니다. 직전 응답과 AGREEMENT_THRESHOLD_METERS 이내로 가까우면
-    // 그 값으로 확정하고 남은 재조회는 취소합니다. 마지막 시도까지 합의가 안 나오면 그 마지막
-    // 값을 그냥 확정합니다.
+    // 마지막 시도가 아니면 tentativePosition만 갱신("확인 중" 점 표시용, 확정하지 않음).
+    // 마지막 시도면 그 값으로 곧바로 확정합니다.
     const handleCandidate = (raw: LatLng, isLastAttempt: boolean) => {
       if (requestIdRef.current !== requestId) return;
-      const previous = candidatesRef.current[candidatesRef.current.length - 1];
-      candidatesRef.current.push(raw);
-
-      const agreesWithPrevious = previous !== undefined && getDistanceInMeters(previous, raw) <= AGREEMENT_THRESHOLD_METERS;
-
-      if (agreesWithPrevious || isLastAttempt) {
-        clearRefineTimeouts();
+      lastCandidateRef.current = raw;
+      if (isLastAttempt) {
         setState({ position: raw, tentativePosition: null, status: 'success', errorReason: null });
       } else {
         setState((prev) => ({ ...prev, tentativePosition: raw }));
@@ -135,9 +127,9 @@ export function useGeolocation(): UseGeolocationResult {
               (refined) => handleCandidate({ lat: refined.coords.latitude, lng: refined.coords.longitude }, isLastAttempt),
               () => {
                 if (requestIdRef.current !== requestId) return;
-                // 재조회 자체가 실패했고 이게 마지막 시도인데 아직 확정된 위치가 없다면, 지금까지
-                // 받은 것 중 가장 최근 응답이라도 확정합니다(계속 'loading'으로 두는 것보다 낫습니다).
-                const lastCandidate = candidatesRef.current[candidatesRef.current.length - 1];
+                // 마지막 재조회 자체가 실패했다면, 지금까지 받은 것 중 가장 최근 응답이라도
+                // 확정합니다(계속 'loading'으로 두는 것보다 낫습니다).
+                const lastCandidate = lastCandidateRef.current;
                 setState((prev) =>
                   isLastAttempt && !prev.position && lastCandidate
                     ? { position: lastCandidate, tentativePosition: null, status: 'success', errorReason: null }
