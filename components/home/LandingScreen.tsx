@@ -13,7 +13,7 @@ import { useSharedGeolocation } from '@/components/common/GeolocationProvider';
 import { useParkingLots } from '@/hooks/useParkingLots';
 import { getCongestionLevel } from '@/lib/parking/congestion';
 import { formatNumber } from '@/utils/format';
-import type { ParkingLot, PlaceResult } from '@/types/parking';
+import type { LatLng, ParkingLot, PlaceResult } from '@/types/parking';
 
 interface StatBadge {
   label: string;
@@ -35,6 +35,16 @@ export function LandingScreen() {
   const [isBannerDismissed, setIsBannerDismissed] = useState(false);
   // 실제로 걸러낼 데이터가 없어 켜고 끄는 것 외의 동작은 없는, 참고 디자인 재현용 토글입니다.
   const [isRealtimeOnly, setIsRealtimeOnly] = useState(true);
+  // TODO(임시 디버그용, 원인 파악 후 삭제): userLocation과 지도가 실제로 보고하는 중심 좌표가
+  // 서로 다른지 화면에서 바로 비교하기 위한 값입니다.
+  const [debugMapCenter, setDebugMapCenter] = useState<LatLng | null>(null);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setDebugMapCenter(mapRef.current?.getCenter() ?? null);
+    }, 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   // 위치 조회 자체는 app/layout.tsx의 GeolocationProvider가 앱 전체에서 한 번만 트리거합니다.
   // 여기서 또 requestLocation()을 호출하면 이 페이지로 올 때마다 새로 조회하게 되어, 이미 확정된
@@ -178,6 +188,20 @@ export function LandingScreen() {
           isLoading={geoStatus === 'loading'}
           className="pointer-events-auto absolute bottom-4 right-4 z-30 md:right-6"
         />
+
+        {/* TODO(임시 디버그용, 원인 파악 후 삭제) */}
+        <div className="pointer-events-none absolute left-2 top-2 z-40 max-w-[260px] rounded-lg bg-black/80 p-2 font-mono text-[10px] leading-tight text-white">
+          <div>status: {geoStatus}</div>
+          <div>
+            userLocation: {userLocation ? `${userLocation.lat.toFixed(5)}, ${userLocation.lng.toFixed(5)}` : 'null'}
+          </div>
+          <div>
+            tentative: {tentativePosition ? `${tentativePosition.lat.toFixed(5)}, ${tentativePosition.lng.toFixed(5)}` : 'null'}
+          </div>
+          <div>
+            mapCenter: {debugMapCenter ? `${debugMapCenter.lat.toFixed(5)}, ${debugMapCenter.lng.toFixed(5)}` : 'null'}
+          </div>
+        </div>
       </div>
     </div>
   );

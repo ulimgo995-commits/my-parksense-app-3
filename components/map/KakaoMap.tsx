@@ -39,6 +39,8 @@ export interface KakaoMapHandle {
   refreshVisibleArea: () => void;
   /** 지도 컨테이너 크기가 바뀐 뒤(탭 전환 등) 강제로 다시 계산합니다. */
   relayout: () => void;
+  /** (임시 디버그용) 지도가 실제로 지금 중심으로 삼고 있는 좌표를 그대로 읽어옵니다. */
+  getCenter: () => LatLng | null;
 }
 
 interface KakaoMapProps {
@@ -280,6 +282,12 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       relayout: () => {
         // 탭 전환 등으로 display:none 상태였다가 다시 보일 때, 지도 크기를 다시 계산하도록 합니다.
         mapRef.current?.relayout();
+      },
+      getCenter: () => {
+        const map = mapRef.current;
+        if (!map) return null;
+        const center = map.getCenter();
+        return { lat: center.getLat(), lng: center.getLng() };
       },
     }),
     [syncMarkers]
