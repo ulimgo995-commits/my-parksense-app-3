@@ -25,17 +25,17 @@ const STEPS = [
 ];
 
 const CONGESTION_RANGE_TEXT: Record<string, string> = {
-  available: '76% ~ 100%',
-  moderate: '51% ~ 75%',
-  congested: '26% ~ 50%',
-  full: '0% ~ 25%',
+  available: '50% ~ 100%',
+  moderate: '30% ~ 49%',
+  congested: '1% ~ 29%',
+  full: '0대(만차)',
 };
 
 const CONGESTION_SUBTEXT: Record<string, string> = {
   available: '널널한 상태',
   moderate: '보통 상태',
   congested: '혼잡한 상태',
-  full: '매우 혼잡한 상태',
+  full: '자리가 없는 상태',
 };
 
 const ENVIRONMENT_ITEMS = [
