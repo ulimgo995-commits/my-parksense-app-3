@@ -39,8 +39,6 @@ export interface KakaoMapHandle {
   refreshVisibleArea: () => void;
   /** 지도 컨테이너 크기가 바뀐 뒤(탭 전환 등) 강제로 다시 계산합니다. */
   relayout: () => void;
-  /** (임시 디버그용) 지도가 실제로 지금 중심으로 삼고 있는 좌표를 그대로 읽어옵니다. */
-  getCenter: () => LatLng | null;
 }
 
 interface KakaoMapProps {
@@ -240,12 +238,29 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
         const map = mapRef.current;
         if (!map || !window.kakao) return;
         const latlng = new window.kakao.maps.LatLng(position.lat, position.lng);
+        pendingActionRef.current = 'autoSync';
+
+        // 현재 화면과 목표 지점이 아주 멀리 떨어져 있으면(예: 다른 지역으로 이동) 애니메이션
+        // panTo가 목적지까지 못 가고 경로 중간 어딘가에서 멈추는 문제를 확인했습니다(Kakao Maps
+        // SDK의 장거리 panTo 한계로 추정). 이런 장거리 이동은 애니메이션 없이 곧바로 이동시켜
+        // 이 문제를 피합니다.
+        const currentCenter = map.getCenter();
+        const distanceMeters = getDistanceInMeters(
+          { lat: currentCenter.getLat(), lng: currentCenter.getLng() },
+          position
+        );
+        const LONG_DISTANCE_THRESHOLD_METERS = 50_000;
+        if (distanceMeters > LONG_DISTANCE_THRESHOLD_METERS) {
+          if (level !== undefined) map.setLevel(level);
+          map.setCenter(latlng);
+          return;
+        }
+
         // panTo는 애니메이션(비동기)이라, 먼저 setLevel부터 호출하면 "아직 이동 중인 옛 중심"을
         // 기준으로 확대되어 엉뚱한 곳이 확대되거나 목표 지점이 화면 가장자리로 밀려납니다.
         // anchor를 목표 좌표로 명시해 확대 기준점을 고정한 뒤, panTo로 정확히 중심을 맞춥니다.
         // 프로그래밍적으로 이동하는 것이므로 "이 지역 검색" 버튼은 띄우지 않고, 이동이 끝나면
         // 자동으로 마커를 다시 계산합니다.
-        pendingActionRef.current = 'autoSync';
         if (level !== undefined) {
           map.setLevel(level, { anchor: latlng, animate: true });
         }
@@ -282,12 +297,6 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
       relayout: () => {
         // 탭 전환 등으로 display:none 상태였다가 다시 보일 때, 지도 크기를 다시 계산하도록 합니다.
         mapRef.current?.relayout();
-      },
-      getCenter: () => {
-        const map = mapRef.current;
-        if (!map) return null;
-        const center = map.getCenter();
-        return { lat: center.getLat(), lng: center.getLng() };
       },
     }),
     [syncMarkers]
@@ -347,8 +356,25 @@ export const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(function Kakao
     if (selectedLotIdRef.current !== null || hasUserMovedMapRef.current) return;
     const latlng = new window.kakao.maps.LatLng(userLocation.lat, userLocation.lng);
     pendingActionRef.current = 'autoSync';
-    map.setLevel(5, { anchor: latlng, animate: true });
-    map.panTo(latlng);
+
+    const currentCenter = map.getCenter();
+    const distanceMeters = getDistanceInMeters(
+      { lat: currentCenter.getLat(), lng: currentCenter.getLng() },
+      userLocation
+    );
+    // 기본 화면(서울)과 실제 위치가 아주 멀리 떨어져 있으면(예: 지방 도시), 애니메이션 panTo가
+    // 목적지까지 못 가고 중간 어딘가에서 멈춰버리는 문제를 확인했습니다(Kakao Maps SDK의
+    // 장거리 panTo 한계로 추정 — 실측 결과 서울↔실제 위치 사이 직선 경로의 중간 지점 근처에서
+    // 멈췄습니다). 이런 장거리 이동은 애니메이션 없이 곧바로 이동시켜 이 문제를 피합니다.
+    // 재조회로 위치가 근처에서 살짝 보정되는 정도의 가까운 거리는 기존처럼 부드럽게 이동합니다.
+    const LONG_DISTANCE_THRESHOLD_METERS = 50_000;
+    if (distanceMeters > LONG_DISTANCE_THRESHOLD_METERS) {
+      map.setLevel(5);
+      map.setCenter(latlng);
+    } else {
+      map.setLevel(5, { anchor: latlng, animate: true });
+      map.panTo(latlng);
+    }
   }, [status, userLocation]);
 
   // 2) 주차장 목록(필터 변경 등)이나 선택 상태가 바뀌면 즉시 마커/클러스터를 다시 계산합니다.
