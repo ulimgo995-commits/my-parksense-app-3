@@ -134,6 +134,7 @@ export function ParkingDetails({ lot, isFavorite, onToggleFavorite, onNavigate, 
         </Button>
         <Button
           variant="secondary"
+          className="shrink-0 whitespace-nowrap"
           onClick={() => {
             setShowTrend((prev) => !prev);
             onShowDetails?.();

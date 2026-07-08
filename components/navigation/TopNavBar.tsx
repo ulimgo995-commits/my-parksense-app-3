@@ -43,12 +43,11 @@ export function TopNavBar() {
 
   return (
     <header className="sticky top-0 z-[70] border-b border-divider bg-white/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between py-2 pl-2 pr-4 md:h-16 md:pl-3 md:pr-6">
-        {/* md:-ml-3은 컨테이너 자신의 md:pl-3(12px)을 정확히 상쇄해 로고를 헤더 왼쪽 끝에 딱
-            붙입니다. 패딩보다 더 크게 당기면(예전의 -ml-6 등) 그 이상은 진짜로 화면 밖으로
-            넘어가 잘릴 수 있지만, 이렇게 패딩만큼만 상쇄하는 건 뷰포트 폭과 무관하게 항상
-            안전합니다(원래 패딩이 있던 자리로 돌아갈 뿐 그 밖으로 나가지 않기 때문). */}
-        <Link href="/" className="flex h-full shrink-0 items-center md:-ml-3" onClick={() => setIsMenuOpen(false)}>
+      {/* max-w-6xl로 가운데 정렬하는 대신 헤더 전체 폭을 그대로 써서, 로고는 화면 왼쪽 끝에
+          거의 붙고 메뉴/햄버거는 오른쪽 끝에 붙습니다(참고 디자인처럼). h-14/h-16 높이가 곧
+          헤더 위쪽 끝~아래쪽 구분선 사이 공간이라, items-center로 그 사이 정중앙에 옵니다. */}
+      <div className="flex h-14 items-center justify-between px-4 py-2 md:h-16 md:px-6">
+        <Link href="/" className="flex h-full shrink-0 items-center" onClick={() => setIsMenuOpen(false)}>
           <span className="hidden md:inline-flex">
             <Logo height={38} />
           </span>
