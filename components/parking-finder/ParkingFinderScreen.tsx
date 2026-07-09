@@ -263,8 +263,6 @@ export function ParkingFinderScreen() {
               onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
               radiusKm={radiusKm}
               onSetRadiusKm={setRadiusKm}
-              isRealtimeOnly={isRealtimeOnly}
-              onToggleRealtimeOnly={() => setIsRealtimeOnly((prev) => !prev)}
             />
           </div>
         )}
@@ -371,8 +369,6 @@ export function ParkingFinderScreen() {
                 onToggleFavoritesOnly={() => setFavoritesOnly((prev) => !prev)}
                 radiusKm={radiusKm}
                 onSetRadiusKm={setRadiusKm}
-                isRealtimeOnly={isRealtimeOnly}
-                onToggleRealtimeOnly={() => setIsRealtimeOnly((prev) => !prev)}
               />
             </div>
           )}

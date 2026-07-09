@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { getCongestionMetaByLevel } from '@/lib/parking/congestion';
 import { PARKING_LOT_TYPE_LABEL } from '@/lib/parking/parkingLotType';
-import { FilterIcon, RefreshIcon, StarIcon, WifiIcon } from '@/components/common/icons';
+import { FilterIcon, RefreshIcon, StarIcon } from '@/components/common/icons';
 import { FilterChip } from './FilterChip';
 import { FilterModal } from './FilterModal';
 import {
@@ -46,13 +46,6 @@ interface FilterBarProps extends UseParkingFiltersResult {
   /** 제공되면 검색 결과 반경(km) 칩이 함께 표시됩니다. */
   radiusKm?: number;
   onSetRadiusKm?: (km: number) => void;
-  /**
-   * "실시간 주차만" 토글 상태. 지도 위 같은 이름의 토글과 상태를 공유하도록 상위에서 관리합니다.
-   * 우리 데이터는 전부 실시간 정보라 실제로 걸러낼 대상이 없어, 켜고 끄는 것 외의 동작은 없는
-   * 참고 디자인 재현용 토글입니다.
-   */
-  isRealtimeOnly: boolean;
-  onToggleRealtimeOnly: () => void;
 }
 
 /**
@@ -64,8 +57,6 @@ export function FilterBar({
   onToggleFavoritesOnly,
   radiusKm,
   onSetRadiusKm,
-  isRealtimeOnly,
-  onToggleRealtimeOnly,
   ...props
 }: FilterBarProps) {
   const { filters, toggleCongestionLevel, selectAllCongestionLevels, setMaxFee, setHoursMode, setType, resetFilters, activeFilterCount } =
@@ -75,19 +66,6 @@ export function FilterBar({
   return (
     <>
       <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
-        <button
-          type="button"
-          onClick={onToggleRealtimeOnly}
-          aria-pressed={isRealtimeOnly}
-          className={`flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-xs font-semibold shadow-card transition-colors ${
-            isRealtimeOnly
-              ? 'border-primary bg-primary text-white'
-              : 'border-divider bg-white text-text-primary hover:bg-gray-50'
-          }`}
-        >
-          <WifiIcon size={14} />
-          실시간 주차만
-        </button>
         {radiusKm !== undefined && onSetRadiusKm && (
           <FilterChip label={`거리 ${radiusKm}km`} isActive={radiusKm !== DEFAULT_RADIUS_KM}>
             {(close) => <RadiusFilterOptions radiusKm={radiusKm} setRadiusKm={onSetRadiusKm} onAfterSelect={close} />}
