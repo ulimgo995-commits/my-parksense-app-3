@@ -1,5 +1,5 @@
 import { CongestionBadge } from '@/components/common/CongestionBadge';
-import { CloseIcon, StarIcon } from '@/components/common/icons';
+import { CloseIcon, CoinIcon, StarIcon } from '@/components/common/icons';
 import { getCongestionLevel } from '@/lib/parking/congestion';
 import { formatDistance, formatNumber, formatRelativeTime } from '@/utils/format';
 import type { ParkingLot } from '@/types/parking';
@@ -33,6 +33,10 @@ export function ParkingListItem({
         <p className="mt-0.5 text-sm font-bold text-text-primary">
           {formatNumber(lot.availableSpaces)}
           <span className="font-normal text-text-secondary"> / {formatNumber(lot.totalSpaces)}대</span>
+        </p>
+        <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-text-secondary">
+          <CoinIcon size={12} className="shrink-0" />
+          {lot.fee}
         </p>
         <p className="mt-0.5 truncate text-xs text-text-secondary">
           {lot.address}
