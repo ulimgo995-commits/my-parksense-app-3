@@ -3,8 +3,8 @@ import type { CongestionLevel, CongestionMeta } from '@/types/parking';
 /**
  * 혼잡도 계산 기준 (이용안내 페이지 "혼잡도 색상 안내"와 동일한 기준)
  * - 여유: 가능면수 비율 50% 이상
- * - 보통: 30~49%
- * - 혼잡: 1~29% (자리가 하나라도 남아 있는 한 "만차"라고 부르지 않습니다)
+ * - 보통: 20~49%
+ * - 혼잡: 1~19% (자리가 하나라도 남아 있는 한 "만차"라고 부르지 않습니다)
  * - 만차: 남은 면수가 실제로 0일 때만
  *
  * "만차"를 비율이 아니라 남은 면수가 정말 0(이하)인지로 판단하는 이유: 예전엔 "만차"를
@@ -22,7 +22,7 @@ export function getCongestionLevel(totalSpaces: number, availableSpaces: number)
   const ratio = availableSpaces / totalSpaces;
 
   if (ratio >= 0.5) return 'available';
-  if (ratio >= 0.3) return 'moderate';
+  if (ratio >= 0.2) return 'moderate';
   return 'congested';
 }
 

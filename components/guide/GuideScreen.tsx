@@ -26,8 +26,8 @@ const STEPS = [
 
 const CONGESTION_RANGE_TEXT: Record<string, string> = {
   available: '50% ~ 100%',
-  moderate: '30% ~ 49%',
-  congested: '1% ~ 29%',
+  moderate: '20% ~ 49%',
+  congested: '1% ~ 19%',
   full: '0대(만차)',
 };
 
