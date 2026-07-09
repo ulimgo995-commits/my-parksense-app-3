@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getCongestionMetaByLevel } from '@/lib/parking/congestion';
 import { PARKING_LOT_TYPE_LABEL } from '@/lib/parking/parkingLotType';
-import { FilterIcon, RefreshIcon, StarIcon } from '@/components/common/icons';
+import { ChevronDownIcon, FilterIcon, RefreshIcon, StarIcon } from '@/components/common/icons';
 import { FilterChip } from './FilterChip';
 import { FilterModal } from './FilterModal';
 import {
@@ -62,10 +62,51 @@ export function FilterBar({
   const { filters, toggleCongestionLevel, selectAllCongestionLevels, setMaxFee, setHoursMode, setType, resetFilters, activeFilterCount } =
     props;
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // 마우스로는 overflow-x-auto 영역을 드래그로 넘길 수 없어서(터치와 달리 스크롤바 드래그만
+  // 가능), 좌우 화살표 버튼으로도 넘길 수 있게 합니다. 끝까지 스크롤된 방향의 화살표는 숨깁니다.
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollState = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(updateScrollState);
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const scrollByAmount = (amount: number) => {
+    scrollRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
+  };
 
   return (
     <>
-      <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5">
+      <div className="relative">
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={() => scrollByAmount(-120)}
+            aria-label="이전 필터 보기"
+            className="absolute left-0 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-floating"
+          >
+            <ChevronDownIcon size={12} className="rotate-90 text-text-secondary" />
+          </button>
+        )}
+        <div
+          ref={scrollRef}
+          onScroll={updateScrollState}
+          className={`no-scrollbar flex items-center gap-2 overflow-x-auto pb-0.5 ${canScrollLeft ? 'pl-8' : ''} ${canScrollRight ? 'pr-8' : ''}`}
+        >
         {radiusKm !== undefined && onSetRadiusKm && (
           <FilterChip label={`거리 ${radiusKm}km`} isActive={radiusKm !== DEFAULT_RADIUS_KM}>
             {(close) => <RadiusFilterOptions radiusKm={radiusKm} setRadiusKm={onSetRadiusKm} onAfterSelect={close} />}
@@ -124,6 +165,17 @@ export function FilterBar({
             </span>
           )}
         </button>
+        </div>
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scrollByAmount(120)}
+            aria-label="다음 필터 보기"
+            className="absolute right-0 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-floating"
+          >
+            <ChevronDownIcon size={12} className="-rotate-90 text-text-secondary" />
+          </button>
+        )}
       </div>
 
       {(activeFilterCount > 0 || (radiusKm !== undefined && radiusKm !== DEFAULT_RADIUS_KM)) && (
