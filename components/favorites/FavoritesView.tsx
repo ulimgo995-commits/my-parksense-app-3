@@ -281,6 +281,7 @@ export function FavoritesView() {
             onClose={handleCloseSheet}
             isFavorite={selectedLot ? isFavorite(selectedLot.id) : false}
             onToggleFavorite={handleToggleFavorite}
+            userLocation={userLocation}
           />
         </div>
 
@@ -305,12 +306,17 @@ export function FavoritesView() {
             <BellIcon size={18} />
           </span>
           <div className="flex-1">
-            <p className="text-sm font-bold text-text-primary">실시간 알림 설정</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-bold text-text-primary">실시간 알림 설정</p>
+              <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-[10px] font-bold text-text-secondary">
+                준비 중
+              </span>
+            </div>
             <p className="mt-0.5 text-xs text-text-secondary">즐겨찾기한 주차장의 혼잡도 변화를 알림으로 받아보세요.</p>
             <button
               type="button"
-              onClick={() => showToast('알림 설정은 아직 준비 중인 기능이에요.')}
-              className="mt-2 rounded-full border border-divider px-3 py-1 text-xs font-semibold text-text-primary transition-colors hover:bg-gray-100"
+              disabled
+              className="mt-2 cursor-not-allowed rounded-full border border-divider px-3 py-1 text-xs font-semibold text-text-secondary opacity-60"
             >
               알림 설정
             </button>

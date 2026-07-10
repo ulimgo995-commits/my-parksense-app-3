@@ -69,7 +69,7 @@ const REALTIME_INFO_ITEMS = [
   },
 ];
 
-const SUPPORTED_REGIONS = ['서울특별시', '주요 전국 공항', '대전광역시', '강릉시', '진주시'];
+const SUPPORTED_REGIONS = ['서울특별시', '전국 주요 공항', '대전광역시', '강릉시', '진주시'];
 
 const FAQ_ITEMS = [
   {
@@ -135,7 +135,7 @@ export function GuideScreen() {
           <section>
             <h2 className="text-lg font-bold text-text-primary">지원 지역</h2>
             <p className="mt-1 text-xs text-text-secondary">
-              현재 서울특별시, 주요 전국 공항, 대전광역시, 강릉시, 진주시 5개 지역 106개 주차장의 실시간 정보를 제공하고 있어요. 지원
+              현재 서울특별시, 전국 주요 공항, 대전광역시, 강릉시, 진주시 5개 지역 106개 주차장의 실시간 정보를 제공하고 있어요. 지원
               지역은 순차적으로 확대될 예정입니다.
             </p>
             <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -241,6 +241,9 @@ export function GuideScreen() {
           >
             1:1 문의하기
             <span aria-hidden="true">→</span>
+          </Link>
+          <Link href="/privacy" className="mt-1 text-xs font-semibold text-text-secondary underline hover:text-primary">
+            개인정보처리방침
           </Link>
         </div>
       </section>

@@ -105,6 +105,9 @@ export function LandingScreen() {
         <p className="mt-3 text-sm text-text-secondary md:text-base">
           지원 지역 주차장의 실시간 정보를 한눈에 확인하고 더 스마트하게 주차하세요.
         </p>
+        <p className="mt-1.5 text-xs font-semibold text-primary md:text-sm">
+          지도 앱엔 없는 실시간 빈자리 정보를, 지자체 앱보다 더 넓은 지역에서 확인하세요.
+        </p>
 
         <div className="mt-3 inline-flex w-fit items-center rounded-full bg-primary-light px-3 py-1.5 text-xs font-semibold text-primary">
           5개 도시 · 106개 주차장 실시간 제공 중

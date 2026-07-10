@@ -428,6 +428,7 @@ export function ParkingFinderScreen() {
           isFavorite={selectedLot ? isFavorite(selectedLot.id) : false}
           onToggleFavorite={handleToggleFavorite}
           onDesktopHeightChange={setDesktopSheetHeightPx}
+          userLocation={referenceLocation}
         />
 
         {lotsStatus === 'error' && (

@@ -8,9 +8,11 @@ import { getCongestionLevel, getCongestionMetaByLevel } from '@/lib/parking/cong
 import { PARKING_LOT_TYPE_LABEL } from '@/lib/parking/parkingLotType';
 import { formatNumber, formatRelativeTime } from '@/utils/format';
 import { getHourlyOccupancy } from '@/utils/congestionTrend';
+import { getDistanceInMeters } from '@/utils/distance';
+import { estimateEtaMinutes } from '@/utils/eta';
 import { CongestionTrendChart } from './CongestionTrendChart';
 import { NavigatingAvatars } from './NavigatingAvatars';
-import type { CongestionLevel, ParkingLot } from '@/types/parking';
+import type { CongestionLevel, LatLng, ParkingLot } from '@/types/parking';
 
 interface InfoItem {
   icon: ReactNode;
@@ -25,6 +27,8 @@ interface ParkingDetailsProps {
   onNavigate: () => void;
   /** 제공되면 "상세정보" 버튼 클릭 시 모바일 Bottom Sheet도 함께 확장됩니다. */
   onShowDetails?: () => void;
+  /** 제공되면 헤더 오른쪽에 "내 위치에서 약 N분" 예상 이동 시간을 표시합니다. */
+  userLocation?: LatLng | null;
 }
 
 const STAT_TEXT_COLOR: Record<CongestionLevel, string> = {
@@ -45,12 +49,22 @@ const STAT_SUBTEXT: Record<CongestionLevel, string> = {
  * 주차장 상세 정보 본문. Bottom Sheet(모바일)와 Desktop 사이드 패널이
  * 동일한 컴포넌트를 공유하여 두 화면의 정보 일관성을 보장합니다.
  */
-export function ParkingDetails({ lot, isFavorite, onToggleFavorite, onNavigate, onShowDetails }: ParkingDetailsProps) {
+export function ParkingDetails({
+  lot,
+  isFavorite,
+  onToggleFavorite,
+  onNavigate,
+  onShowDetails,
+  userLocation,
+}: ParkingDetailsProps) {
   const level = getCongestionLevel(lot.totalSpaces, lot.availableSpaces);
   const meta = getCongestionMetaByLevel(level);
   const [refreshedAt, setRefreshedAt] = useState(lot.updatedAt);
   const [showTrend, setShowTrend] = useState(false);
   const now = new Date();
+  const etaMinutes = userLocation
+    ? estimateEtaMinutes(getDistanceInMeters(userLocation, { lat: lot.lat, lng: lot.lng }))
+    : null;
 
   const infoItems: InfoItem[] = [
     { icon: <ClockIcon />, label: '운영시간', value: lot.operationHours },
@@ -90,6 +104,14 @@ export function ParkingDetails({ lot, isFavorite, onToggleFavorite, onNavigate, 
             <span className="truncate">{lot.address}</span>
           </p>
         </div>
+        {etaMinutes !== null && (
+          <div className="shrink-0 rounded-xl bg-gray-50 px-3 py-2 text-center">
+            <p className="text-[11px] text-text-secondary">내 위치에서</p>
+            <p className="mt-0.5 flex items-center justify-center gap-1 text-sm font-bold text-primary">
+              <NavigationIcon size={14} />약 {etaMinutes}분
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2">

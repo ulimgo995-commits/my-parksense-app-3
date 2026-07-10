@@ -6,7 +6,7 @@ import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { CloseIcon } from '@/components/common/icons';
 import { logNavigationEvent } from '@/lib/supabase/navigationEvents';
 import { getKakaoDirectionsUrl } from '@/utils/kakaoLink';
-import type { ParkingLot } from '@/types/parking';
+import type { LatLng, ParkingLot } from '@/types/parking';
 import { ParkingDetails } from './ParkingDetails';
 
 interface BottomSheetProps {
@@ -20,6 +20,8 @@ interface BottomSheetProps {
    * 다른 요소(혼잡도 범례 등)를 "카드 바로 위"에 붙이려면 실제 높이를 알아야 합니다.
    */
   onDesktopHeightChange?: (heightPx: number) => void;
+  /** 제공되면 상세 카드에 "내 위치에서 약 N분" 예상 이동 시간이 표시됩니다. */
+  userLocation?: LatLng | null;
 }
 
 const SHEET_HEIGHT_VH = 88;
@@ -36,7 +38,7 @@ const COLLAPSED_TRANSLATE_VH = SHEET_HEIGHT_VH - COLLAPSED_VISIBLE_VH;
  * 즐겨찾기 상태는 상위 페이지 컴포넌트에서 단일 useFavorites 인스턴스로 관리하여
  * Bottom Sheet / 내 주변 / 즐겨찾기 화면 간 상태가 항상 일치하도록 합니다.
  */
-export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite, onDesktopHeightChange }: BottomSheetProps) {
+export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite, onDesktopHeightChange, userLocation }: BottomSheetProps) {
   const isDesktop = useIsDesktop();
   const isOpen = lot !== null;
   const [displayedLot, setDisplayedLot] = useState<ParkingLot | null>(lot);
@@ -101,6 +103,7 @@ export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite, onDesk
             isFavorite={isFavorite}
             onToggleFavorite={() => onToggleFavorite(displayedLot)}
             onNavigate={handleNavigate}
+            userLocation={userLocation}
           />
         </div>
       </div>
@@ -142,6 +145,7 @@ export function BottomSheet({ lot, onClose, isFavorite, onToggleFavorite, onDesk
           onToggleFavorite={() => onToggleFavorite(displayedLot)}
           onNavigate={handleNavigate}
           onShowDetails={snap === 'collapsed' ? () => setSnap('expanded') : undefined}
+          userLocation={userLocation}
         />
       </div>
     </div>
