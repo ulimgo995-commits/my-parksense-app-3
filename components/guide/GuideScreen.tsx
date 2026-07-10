@@ -3,6 +3,7 @@ import { LogoMark } from '@/components/common/Logo';
 import {
   BellIcon,
   CarIcon,
+  GridIcon,
   InfoIcon,
   MonitorIcon,
   ParkingPinIcon,
@@ -61,7 +62,14 @@ const REALTIME_INFO_ITEMS = [
     title: '정확도 안내',
     description: '센서 및 시스템 오류 등으로 실제 주차 가능 대수와 차이가 있을 수 있습니다.',
   },
+  {
+    icon: <GridIcon size={18} />,
+    title: '데이터 출처',
+    description: '서울 열린데이터 광장과 공공데이터포털의 공공 주차장 실시간 정보를 활용하고 있어요.',
+  },
 ];
+
+const SUPPORTED_REGIONS = ['서울특별시', '주요 전국 공항', '대전광역시', '강릉시', '진주시'];
 
 const FAQ_ITEMS = [
   {
@@ -119,6 +127,24 @@ export function GuideScreen() {
                   <p className="text-xs font-semibold text-text-secondary">STEP {index + 1}</p>
                   <p className="text-sm font-bold text-text-primary">{step.title}</p>
                   <p className="text-xs text-text-secondary">{step.description}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-text-primary">지원 지역</h2>
+            <p className="mt-1 text-xs text-text-secondary">
+              현재 서울특별시, 주요 전국 공항, 대전광역시, 강릉시, 진주시 5개 지역 106개 주차장의 실시간 정보를 제공하고 있어요. 지원
+              지역은 순차적으로 확대될 예정입니다.
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+              {SUPPORTED_REGIONS.map((region) => (
+                <div key={region} className="flex flex-col items-center gap-2 rounded-2xl bg-gray-50 p-4 text-center">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-primary shadow-card">
+                    <PinIcon size={22} />
+                  </span>
+                  <p className="text-sm font-bold text-text-primary">{region}</p>
                 </div>
               ))}
             </div>
